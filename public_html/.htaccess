@@ -1,0 +1,78 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+# Bloquear archivos ocultos, de respaldo, de configuración y código suelto
+<FilesMatch "(^\.|\.(sql|log|bak|ini|md|env|json|lock|yml|yaml|sh|inc|dist|php~|orig|swp)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ---------------------------------------------------------------------------------------------------------
+# Cabeceras de seguridad para TODO, también para los archivos estáticos (el panel agrega las suyas, incluida la CSP,
+# en las respuestas de PHP). HSTS solo cuando el pedido llegó por HTTPS.
+# ---------------------------------------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+    Header always set Cross-Origin-Resource-Policy "same-origin"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+    Header unset X-Powered-By
+    # offline.html es estático: su propia CSP (sin scripts)
+    <FilesMatch "\.html$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    </FilesMatch>
+    # Un SVG abierto directo no puede ejecutar nada
+    <FilesMatch "\.svg$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+    </FilesMatch>
+</IfModule>
+
+# ---------------------------------------------------------------------------------------------------------
+# URLs limpias. Todo lo que no sea un archivo existente (assets, fuentes, íconos, offline.html) lo atiende el
+# controlador frontal index.php, que resuelve las rutas (privado/includes/rutas.php) o muestra la 404 del panel.
+# Ningún .php es accesible directo: sólo index.php, que además redirige (301) las URLs viejas.
+# ---------------------------------------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 0. Host con caracteres raros: se rechaza (evita redirecciones armadas con un Host falso)
+    RewriteCond %{HTTP_HOST} !^[A-Za-z0-9.-]+(:[0-9]+)?$
+    RewriteRule ^ - [F]
+
+    # 1. Siempre HTTPS (hPanel/LiteSpeed y proxies informan el esquema en HTTPS o X-Forwarded-Proto)
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # 2. Cualquier .php que no sea index.php (existente o no) va al controlador frontal: ahí se redirige o se
+    #    responde 404. Nunca se ejecuta directamente.
+    RewriteCond %{REQUEST_URI} !(^|/)index\.php$ [NC]
+    RewriteRule \.php$ index.php [L,QSA]
+
+    # 3. Si no es un archivo (ni carpeta) existente, al controlador frontal
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# Caché de assets. Todos los links llevan ?v=<versión> (privado/includes/version.php), así que al subir la
+# versión el celular pide lo nuevo igual. Las fuentes tienen nombre fijo y casi nunca cambian.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType text/javascript "access plus 7 days"
+    ExpiresByType image/png "access plus 7 days"
+    ExpiresByType image/svg+xml "access plus 7 days"
+    ExpiresByType image/x-icon "access plus 7 days"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+# offline.html cambia con la versión del service worker (?v=); el service worker y el manifest los genera PHP
+# con Cache-Control no-cache.

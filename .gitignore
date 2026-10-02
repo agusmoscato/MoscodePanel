@@ -1,0 +1,15 @@
+# Nunca subir a un repositorio ni compartir
+privado/config.php
+privado/logs/
+privado/sesiones/
+privado/backups/
+*.log
+*.sql.gz
+*.enc
+*.bak
+.env
+.env.*
+# Local
+.DS_Store
+Thumbs.db
+node_modules/

@@ -1,0 +1,9 @@
+/* Pantalla "sin conexión" y página de error genérica (sin dependencias: no usa app.css ni fuentes del panel) */
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #141517; color: #E8E9EB;
+       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center; }
+svg { width: 72px; height: 72px; border-radius: 16px; margin-bottom: 20px; }
+h1 { font-size: 1.25rem; margin: 0 0 8px; }
+p { color: #9A9DA3; margin: 0 0 24px; line-height: 1.5; max-width: 32ch; }
+.reintentar { display: inline-flex; align-items: center; font-weight: 600; min-height: 48px; padding: 0 24px; border-radius: 10px; background: #10A36F; color: #04130D; text-decoration: none; }
