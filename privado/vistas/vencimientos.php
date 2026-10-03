@@ -68,8 +68,7 @@ $urlTipo = fn(string $t) => url('vencimientos', $t !== '' ? ['tipo' => $t] : [])
     <ul class="timeline">
         <?php foreach ($lista as $it): $tipoU = tipo_urgencia($it['dias']);
             $esAvisable = $it['tipo'] === 'Servicio anual' || $it['tipo'] === 'Dominio';
-            $umbralAviso = $it['tipo'] === 'Dominio' ? 7 : 60;
-            $ofrecerAviso = $esAvisable && $it['dias'] <= $umbralAviso && ($it['telefono'] ?? '') !== '';
+            $ofrecerAviso = $esAvisable && ofrecer_aviso_renovacion((int) $it['dias'], (string) ($it['telefono'] ?? ''));
             $claveAviso = ($it['tipo'] === 'Dominio' ? 'dominio' : 'servicio') . ':' . (int) $it['id']; ?>
             <li class="tl-item <?= e($tipoU) ?>">
                 <div class="card">

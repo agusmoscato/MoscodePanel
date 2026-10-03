@@ -22,5 +22,7 @@ if (!isset($post['nonce'])) {
 $_POST = $post;
 $_SERVER['REQUEST_METHOD'] = 'POST';
 fijar_usuario($usuarioId);
+// Lo mismo que deja panel.php (require_login) para las acciones: varias usan $usuario['id'] (ej. quién anuló un pago)
+$usuario = fila('SELECT id, usuario, nombre, email, rol, activo, debe_cambiar_clave, sesion_version FROM usuarios WHERE id = ?', [$usuarioId]);
 
 require RAIZ_PROYECTO . '/privado/acciones/' . $accion . '.php';

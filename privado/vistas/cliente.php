@@ -86,7 +86,7 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
             <div class="cards-grid">
             <?php foreach ($servicios as $s):
                 $dd = ($s['tipo_cobro'] === 'anual' && $s['proximo_vencimiento']) ? dias_hasta($s['proximo_vencimiento']) : null;
-                $ofrecerAviso = $dd !== null && $dd <= 60 && $c['telefono'] !== ''; ?>
+                $ofrecerAviso = ofrecer_aviso_renovacion($dd, (string) $c['telefono']); ?>
                 <article class="mini<?= $s['estado'] !== 'activo' ? ' apagada' : '' ?>">
                     <div class="mini-cab">
                         <div class="mini-tit"><?= e($s['nombre']) ?></div>
@@ -126,7 +126,7 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
             <div class="cards-grid">
             <?php foreach ($dominios as $d):
                 $dd = dias_hasta($d['fecha_vencimiento']);
-                $ofrecerAvisoDom = $d['estado'] === 'activo' && $dd <= 7 && $c['telefono'] !== ''; ?>
+                $ofrecerAvisoDom = $d['estado'] === 'activo' && ofrecer_aviso_renovacion($dd, (string) $c['telefono']); ?>
                 <article class="mini<?= $d['estado'] === 'baja' ? ' apagada' : '' ?>">
                     <div class="mini-cab">
                         <div class="mini-tit mono"><?= e($d['dominio']) ?></div>

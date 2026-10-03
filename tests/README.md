@@ -68,6 +68,36 @@ alfabético, dentro del mismo proceso de `tests/run.php`). Adentro tenés dispon
   consultar la base con `fila()`/`valor()` para ver qué pasó, como lo haría la vista siguiente. Si la acción
   pide `nonce` (formularios de un solo uso) y el `$post` no lo trae, `ejecutar_accion()` genera uno válido
   solo.
+- Las tablas de datos de usuario (`TABLAS_USUARIO` en `privado/includes/db.php`) exigen el filtro
+  `usuario_id = {U}` también en las consultas de las pruebas: una consulta sin él se bloquea con una
+  excepción. Para mirar los datos de otra cuenta, `con_usuario($id, fn() => valor(...))`.
+
+### Pruebas por HTTP (`tests/soporte_http.php`)
+
+Los casos `tests/casos/http_*.php` (y partes de otros) recorren la app real por HTTP, como un navegador: la
+primera vez que un caso lo pide se levanta el servidor embebido de PHP (`php -S`, puerto
+`MOSCODE_TEST_HTTP_PORT`, 8099 por defecto) sirviendo una **copia** de `privado/` y `public_html/` en
+`tests/.entorno/http/` con el `config.php` de prueba, y se apaga solo al terminar la corrida. El router es
+`tests/router_http.php` (hace lo mismo que el `.htaccess`). Disponible en los casos:
+
+- `new Navegador()` — un dispositivo con sus propias cookies. `->login($usuario, $clave, $recordar)`,
+  `->get($ruta)`, `->post($ruta, $datos)` (agrega solo el `csrf` y el `nonce` de la última página que
+  abrió: para un formulario de un solo uso, abrí antes la pantalla del formulario), `->pedir()` para un
+  pedido crudo (sin CSRF, con otro cuerpo o cabeceras), `->cookies()`, `->ponerCookie()` y
+  `->cerrarNavegador()` (borra las cookies de sesión, como cerrar el navegador). Cada respuesta es
+  `['codigo', 'cab' => [nombre en minúsculas => [valores]], 'cuerpo', 'location']`; no sigue
+  redirecciones solo, para poder verificar a dónde manda (`redirige_a($r, '/login')`).
+- `nuevo_usuario_con_clave($prefijo, $clave, $rol = 'usuario')` — usuario con contraseña conocida para
+  entrar por `/login`; deja el contexto fijado en él.
+- Si una respuesta da 500, se imprimen las últimas líneas del log de errores de la app servida.
+
+Ojo con el **límite de intentos por IP** (20 fallos en 15 minutos, cualquier usuario): todas las pruebas
+salen de 127.0.0.1. Un caso que provoque fallos de login a propósito tiene que borrarlos al terminar
+(`DELETE FROM login_intentos WHERE ip = '127.0.0.1'`), como hacen `http_login.php` y `http_2fa.php`.
+
+Lo único que el servidor embebido no reproduce es el `.htaccess` (cabeceras de los archivos estáticos,
+redirección a HTTPS, carpetas bloqueadas): para eso está `php privado/scripts/verificar_servidor.php --web`
+contra el hosting real.
 
 No hace falta (ni conviene) probar acá lo que ya cubre el auditor estático de aislamiento
 (`php privado/scripts/auditar_aislamiento.php`, que no usa esta base) ni lo que es puramente de formato de
@@ -78,6 +108,8 @@ arriba).
 
 - **Sintaxis de todo el proyecto**: `for f in $(find privado public_html tests -name '*.php'); do php -l "$f"; done`
 - **Aislamiento entre usuarios (estático, sin base)**: `php privado/scripts/auditar_aislamiento.php`
-- La suite de seguridad y regresión completa que describe el README principal (cabeceras, CSP, login, 2FA,
-  Mercado Pago, backups, etc.) no vive como código en este repositorio — se corrió aparte, a mano, contra un
-  navegador real. Esta carpeta no la reemplaza.
+- De la batería de seguridad que describe el README principal, ya corren acá login y bloqueo, recordarme,
+  2FA, contraseña temporal, pagos y anulaciones, cuotas, webhook de Mercado Pago (simulado), cotización
+  pendiente, cabeceras/CSP y aislamiento de pantallas, exportaciones y acciones. Siguen siendo manuales:
+  SMTP/Telegram, backups y restauración, rotación de la clave maestra, instalador, portal del cliente, crons
+  por URL y el comportamiento del `.htaccess` en el hosting.

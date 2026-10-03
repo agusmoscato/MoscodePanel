@@ -1,4 +1,4 @@
--- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 005).
+-- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 009).
 -- Lo ejecuta public_html/install.php; también se puede importar a mano desde phpMyAdmin.
 -- Cada sentencia termina con ";" al final de línea (el instalador separa por eso).
 --

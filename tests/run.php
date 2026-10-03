@@ -20,6 +20,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require __DIR__ . '/soporte.php';
+require __DIR__ . '/soporte_http.php';
 
 $db = config_db_prueba();
 echo "Base de prueba: {$db['name']} en {$db['host']}:{$db['port']} (usuario {$db['user']})\n";
@@ -39,7 +40,15 @@ $casos = glob(__DIR__ . '/casos/*.php') ?: [];
 sort($casos);
 foreach ($casos as $archivo) {
     echo "\n=== " . basename($archivo) . " ===\n";
-    require $archivo;
+    try {
+        require $archivo;
+    } catch (Throwable $ex) {
+        // Un caso que explota cuenta como un fallo, pero no corta los demás
+        $GLOBALS['__pruebas']++;
+        $GLOBALS['__fallos'][] = basename($archivo) . ': ' . get_class($ex) . ' — ' . $ex->getMessage();
+        echo "  FALLÓ   el caso terminó con una excepción: " . get_class($ex) . ': ' . $ex->getMessage()
+            . "\n          en " . $ex->getFile() . ':' . $ex->getLine() . "\n";
+    }
 }
 
 $pruebas = $GLOBALS['__pruebas'];

@@ -116,7 +116,7 @@ $plantillaRenovacionEditada = cfg('plantilla_renovacion') !== '';
     <details class="acordeon" id="renovacion" data-abierto-escritorio>
         <summary><span><?= icono('calendar-days', 'chico') ?> Aviso de renovación anual</span><?= icono('chevron-down') ?></summary>
         <div class="acordeon-cuerpo">
-            <p class="ayuda">Mensaje aparte del de cobro, para avisar con tiempo que un servicio anual está por renovarse. Se ofrece en la ficha del cliente y en Vencimientos cuando falten 60 días o menos.</p>
+            <p class="ayuda">Mensaje aparte del de cobro, para avisar con tiempo que un servicio anual o un dominio está por renovarse. Se ofrece en la ficha del cliente y en Vencimientos cuando falten <?= AVISO_RENOVACION_DIAS ?> días o menos.</p>
             <label>Plantilla
                 <textarea name="plantilla_renovacion" rows="10" required maxlength="2000"><?= e(viejo('plantilla_renovacion', plantilla_renovacion_actual())) ?></textarea>
                 <span class="ayuda">

@@ -6,6 +6,14 @@
  */
 declare(strict_types=1);
 
+/**
+ * Aviso interno (para vos, por email/Telegram) de un dominio que vence en estos días o menos y todavía no se
+ * marcó como renovado ("Renovar" mueve la fecha un año, así que un dominio renovado ya no entra). Va SIEMPRE,
+ * aunque este número no esté entre los días de aviso configurados: si no se renueva en el proveedor, se pierde.
+ * No confundir con el botón "Avisar renovación" por WhatsApp al cliente (AVISO_RENOVACION_DIAS, whatsapp.php).
+ */
+const DOMINIO_AVISO_INTERNO_DIAS = 7;
+
 /** Días de aviso configurados, de mayor a menor: "30,15,7,0" → [30, 15, 7, 0]. */
 function dias_aviso_config(): array
 {
@@ -182,12 +190,17 @@ function ejecutar_resumen_mensual(bool $forzar = false, bool $actualizarDolar = 
 function ejecutar_avisos_vencimientos(): array
 {
     $escalones = dias_aviso_config();
-    $maximo = $escalones[0];
+    $escalonesDominio = $escalones;
+    if (!in_array(DOMINIO_AVISO_INTERNO_DIAS, $escalonesDominio, true)) {
+        $escalonesDominio[] = DOMINIO_AVISO_INTERNO_DIAS;
+        rsort($escalonesDominio);
+    }
+    $maximo = max($escalones[0], DOMINIO_AVISO_INTERNO_DIAS);
     $limite = date('Y-m-d', strtotime("+$maximo days"));
 
     $items = [];
     foreach (filas(
-        "SELECT d.id, d.dominio AS nombre, d.fecha_vencimiento AS venc, c.nombre AS cliente
+        "SELECT d.id, d.dominio AS nombre, d.fecha_vencimiento AS venc, d.proveedor, c.nombre AS cliente
          FROM dominios d JOIN clientes c ON c.id = d.cliente_id
          WHERE d.usuario_id = {U} AND c.usuario_id = {U} AND d.estado = 'activo' AND d.fecha_vencimiento BETWEEN CURDATE() AND ?",
         [$limite]
@@ -218,7 +231,7 @@ function ejecutar_avisos_vencimientos(): array
     $refs = [];
     foreach ($items as $it) {
         $dias = dias_hasta($it['venc']);
-        $escalon = escalon_aviso($escalones, $dias);
+        $escalon = escalon_aviso($it['tipo'] === 'dominio' ? $escalonesDominio : $escalones, $dias);
         if ($escalon === null || ya_avisado($it['tipo'], (int) $it['id'], $escalon, $it['venc'])) {
             continue;
         }
@@ -235,7 +248,10 @@ function ejecutar_avisos_vencimientos(): array
     foreach ($pendientes as $p) {
         $cuando = $p['dias'] === 0 ? 'VENCE HOY' : 'en ' . $p['dias'] . ' días';
         $monto = isset($p['saldo']) ? ' — ' . fmt_monto($p['saldo'], $p['moneda']) : '';
-        $lineas[] = sprintf('• %s %s (%s) — %s, %s%s', $p['etiqueta'], $p['nombre'], $p['cliente'], fmt_fecha($p['venc']), $cuando, $monto);
+        $sinRenovar = $p['tipo'] === 'dominio' && $p['dias'] <= DOMINIO_AVISO_INTERNO_DIAS
+            ? ' — SIN RENOVAR: renovalo en ' . ($p['proveedor'] !== '' ? $p['proveedor'] : 'el proveedor') . ' y marcalo con "Renovar"'
+            : '';
+        $lineas[] = sprintf('• %s %s (%s) — %s, %s%s%s', $p['etiqueta'], $p['nombre'], $p['cliente'], fmt_fecha($p['venc']), $cuando, $monto, $sinRenovar);
     }
     $res = notificar('vencimientos', 'Vencimientos próximos (' . count($pendientes) . ')', implode("\n", $lineas), $refs);
     $log = $res['detalle'];

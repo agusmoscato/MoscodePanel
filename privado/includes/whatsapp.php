@@ -442,6 +442,19 @@ function mensaje_renovacion(array $cliente, array $servicio): string
     return strtr($plantilla, $vars);
 }
 
+/**
+ * Días antes del vencimiento desde los que se ofrece el botón "Avisar renovación" (WhatsApp al cliente), igual
+ * para servicios anuales y dominios. No confundir con el aviso interno de dominios sin renovar
+ * (DOMINIO_AVISO_INTERNO_DIAS en resumen.php), que es para vos y sale por tus canales.
+ */
+const AVISO_RENOVACION_DIAS = 60;
+
+/** ¿Se ofrece "Avisar renovación"? Faltan AVISO_RENOVACION_DIAS días o menos (o ya venció) y hay teléfono. */
+function ofrecer_aviso_renovacion(?int $diasHasta, string $telefono): bool
+{
+    return $diasHasta !== null && $diasHasta <= AVISO_RENOVACION_DIAS && $telefono !== '';
+}
+
 /** Link wa.me con el aviso de renovación de $servicio, o '' si el cliente no tiene teléfono. */
 function link_whatsapp_renovacion(array $cliente, array $servicio): string
 {
