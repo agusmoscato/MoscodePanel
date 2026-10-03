@@ -12,16 +12,23 @@ if ($id && !$actual) {
     redirigir(url('cliente', ['id' => $clienteId]));
 }
 
+$porCantidad = post('por_cantidad') === '1';
 $d = [
-    'nombre'       => post('nombre'),
-    'descripcion'  => post('descripcion'),
-    'monto'        => parsear_monto(post('monto')) ?? -1.0,
-    'moneda'       => post('moneda', 'ARS'),
-    'tipo_cobro'   => post('tipo_cobro', 'mensual'),
-    'fecha_inicio' => post('fecha_inicio'),
-    'estado'       => post('estado', 'activo'),
+    'nombre'         => post('nombre'),
+    'descripcion'    => post('descripcion'),
+    'monto'          => -1.0,   // se completa más abajo: a mano, o cantidad × precio por unidad
+    'moneda'         => post('moneda', 'ARS'),
+    'tipo_cobro'     => post('tipo_cobro', 'mensual'),
+    'fecha_inicio'   => post('fecha_inicio'),
+    'estado'         => post('estado', 'activo'),
     'inicio_mensual' => post('inicio_mensual', 'mes_siguiente'),
     'dias_anticipo'  => (int) post('dias_anticipo', (string) ANTICIPO_POR_DEFECTO_DIAS),
+    'por_cantidad'   => $porCantidad ? 1 : 0,
+    'cantidad'       => null,
+    'unidad'         => '',
+    'unidad_singular' => '',
+    'precio_unidad'  => null,
+    'detalle'        => '',
 ];
 if (!isset(INICIO_MENSUAL[$d['inicio_mensual']]) || $d['dias_anticipo'] < 0 || $d['dias_anticipo'] > 365) {
     volver_con_error('Revisá los días de anticipo (0 a 365) y la opción de inicio mensual.', $volver);
@@ -29,11 +36,41 @@ if (!isset(INICIO_MENSUAL[$d['inicio_mensual']]) || $d['dias_anticipo'] < 0 || $
 if ($d['nombre'] === '') {
     volver_con_error('El nombre del servicio es obligatorio.', $volver);
 }
-if ($err = largo_excedido(['El nombre' => [$d['nombre'], 160], 'La descripción' => [$d['descripcion'], 160]])) {
+if ($err = largo_excedido([
+    'El nombre' => [$d['nombre'], 160], 'La descripción' => [$d['descripcion'], 160],
+    'La unidad' => [post('unidad'), 60], 'La unidad en singular' => [post('unidad_singular'), 60],
+    'El detalle' => [post('detalle'), 160],
+])) {
     volver_con_error($err, $volver);
 }
-if ($d['monto'] < 0.01) {
-    volver_con_error('El monto no es válido: escribí solo números (ej. 15000 o 40,50), mayor a cero.', $volver);
+if ($porCantidad) {
+    $cantidad = parsear_monto(post('cantidad'));
+    $precioUnidad = parsear_monto(post('precio_unidad'));
+    $unidad = post('unidad');
+    if ($cantidad === null || $cantidad < 0.01) {
+        volver_con_error('La cantidad no es válida: escribí un número mayor a cero.', $volver);
+    }
+    if ($precioUnidad === null || $precioUnidad < 0.01) {
+        volver_con_error('El precio por unidad no es válido: escribí un número mayor a cero.', $volver);
+    }
+    if ($unidad === '') {
+        volver_con_error('Indicá la unidad (ej. "usuarios", "cuentas de mail").', $volver);
+    }
+    $monto = round($cantidad * $precioUnidad, 2);
+    if ($monto < 0.01 || $monto > MONTO_MAX) {
+        volver_con_error('El monto resultante (cantidad × precio por unidad) no es válido.', $volver);
+    }
+    $d['cantidad'] = $cantidad;
+    $d['precio_unidad'] = $precioUnidad;
+    $d['unidad'] = $unidad;
+    $d['unidad_singular'] = post('unidad_singular');
+    $d['detalle'] = post('detalle');
+    $d['monto'] = $monto;
+} else {
+    $d['monto'] = parsear_monto(post('monto')) ?? -1.0;
+    if ($d['monto'] < 0.01) {
+        volver_con_error('El monto no es válido: escribí solo números (ej. 15000 o 40,50), mayor a cero.', $volver);
+    }
 }
 if (!in_array($d['moneda'], ['ARS', 'USD'], true) || !in_array($d['tipo_cobro'], ['mensual', 'anual'], true)
     || !in_array($d['estado'], ['activo', 'pausado', 'baja'], true)) {
@@ -63,6 +100,9 @@ if ($id) {
             'porcentaje' => porcentaje_historial((float) $actual['monto'], $d['monto']),
             'motivo' => 'Edición manual', 'fecha' => date('Y-m-d H:i:s'),
         ]);
+    }
+    if ($actual['proximo_vencimiento'] !== $d['proximo_vencimiento']) {
+        $d['aviso_renovacion_enviado_en'] = null;   // cambió la fecha de vencimiento: el aviso anterior ya no aplica
     }
     actualizar('servicios', $id, $d);
     flash('ok', 'Servicio actualizado.');

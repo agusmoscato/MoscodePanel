@@ -85,7 +85,8 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
         <?php else: ?>
             <div class="cards-grid">
             <?php foreach ($servicios as $s):
-                $dd = ($s['tipo_cobro'] === 'anual' && $s['proximo_vencimiento']) ? dias_hasta($s['proximo_vencimiento']) : null; ?>
+                $dd = ($s['tipo_cobro'] === 'anual' && $s['proximo_vencimiento']) ? dias_hasta($s['proximo_vencimiento']) : null;
+                $ofrecerAviso = $dd !== null && $dd <= 60 && $c['telefono'] !== ''; ?>
                 <article class="mini<?= $s['estado'] !== 'activo' ? ' apagada' : '' ?>">
                     <div class="mini-cab">
                         <div class="mini-tit"><?= e($s['nombre']) ?></div>
@@ -93,12 +94,21 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
                     </div>
                     <div class="mini-monto"><?= monto_html($s['monto'], $s['moneda']) ?><span class="suave"> / <?= $s['tipo_cobro'] === 'anual' ? 'año' : 'mes' ?></span></div>
                     <?php if ($s['moneda'] === 'USD' && $cotValor): ?><div class="suave">≈ <?= monto_html($s['monto'] * $cotValor) ?></div><?php endif; ?>
+                    <?php if ($s['por_cantidad']): ?><div class="suave"><?= e(detalle_cantidad_servicio($s)) ?> · <?= e(monto_codigo_wa((float) $s['precio_unidad'], $s['moneda'])) ?>/<?= e($s['unidad_singular'] ?: $s['unidad']) ?></div><?php endif; ?>
                     <div class="mini-meta">
                         <?= chip(ucfirst($s['tipo_cobro']), 'mute', $s['tipo_cobro'] === 'anual' ? 'calendar-days' : 'refresh-cw') ?>
                         <?php if ($dd !== null): ?><?= chip_vencimiento($dd) ?><span class="suave mono"><?= e(fecha_corta($s['proximo_vencimiento'])) ?></span><?php endif; ?>
                         <span class="suave">desde <?= e(fecha_corta($s['fecha_inicio'])) ?></span>
                     </div>
-                    <div class="mini-acc"><a class="btn sec chico" href="<?= e(url('servicio_form', ['id' => $s['id']])) ?>"><?= icono('pencil', 'chico') ?>Editar</a></div>
+                    <?php if ($dd !== null): ?>
+                    <div class="suave" data-aviso-estado="<?= (int) $s['id'] ?>"><?= $s['aviso_renovacion_enviado_en'] ? 'aviso enviado el ' . e(date('d/m', strtotime($s['aviso_renovacion_enviado_en']))) : '' ?></div>
+                    <?php endif; ?>
+                    <div class="mini-acc">
+                        <?php if ($ofrecerAviso): ?>
+                        <a class="btn sec chico" href="<?= e(link_whatsapp_renovacion($c, $s)) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="<?= (int) $s['id'] ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
+                        <?php endif; ?>
+                        <a class="btn sec chico" href="<?= e(url('servicio_form', ['id' => $s['id']])) ?>"><?= icono('pencil', 'chico') ?>Editar</a>
+                    </div>
                 </article>
             <?php endforeach; ?>
             </div>

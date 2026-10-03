@@ -15,6 +15,7 @@ $resumenHecho = cfg('resumen_periodo_hecho') === $periodo;
 $sinFeriados = !hay_feriados_del_anio((int) date('Y'));
 $plantillaEditada = cfg('plantilla_whatsapp') !== '';
 $legacy = cfg('plantilla_whatsapp_legacy') === '1';
+$plantillaRenovacionEditada = cfg('plantilla_renovacion') !== '';
 ?>
 <div class="pagina-cab">
     <div>
@@ -112,6 +113,27 @@ $legacy = cfg('plantilla_whatsapp_legacy') === '1';
         </div>
     </details>
 
+    <details class="acordeon" id="renovacion" data-abierto-escritorio>
+        <summary><span><?= icono('calendar-days', 'chico') ?> Aviso de renovación anual</span><?= icono('chevron-down') ?></summary>
+        <div class="acordeon-cuerpo">
+            <p class="ayuda">Mensaje aparte del de cobro, para avisar con tiempo que un servicio anual está por renovarse. Se ofrece en la ficha del cliente y en Vencimientos cuando falten 60 días o menos.</p>
+            <label>Plantilla
+                <textarea name="plantilla_renovacion" rows="10" required maxlength="2000"><?= e(viejo('plantilla_renovacion', plantilla_renovacion_actual())) ?></textarea>
+                <span class="ayuda">
+                    Variables: <code>{saludo}</code> · <code>{contacto}</code> · <code>{servicio}</code> · <code>{cuando}</code> ("este mes", "el mes que viene" o la fecha) ·
+                    <code>{fecha_vencimiento}</code> (dd/mm) · <code>{vigencia_desde}</code> / <code>{vigencia_hasta}</code> (dd/mm/aaaa) ·
+                    <code>{detalle_cantidad}</code> (ej. "los 7 mails con 10.00 GB de almacenamiento") · <code>{total}</code> · <code>{precio_unidad}</code> ·
+                    <code>{unidad_singular}</code> · <code>{tipo_dolar}</code>. El bloque <code>{si_cantidad}...{fin_si_cantidad}</code> solo se muestra si el servicio es por cantidad.
+                </span>
+            </label>
+            <?php if ($plantillaRenovacionEditada): ?>
+                <button class="btn sec chico" type="submit" form="form-restaurar-plantilla-renovacion"><?= icono('rotate-ccw', 'chico') ?>Restaurar plantilla por defecto</button>
+            <?php else: ?>
+                <p class="ayuda">Estás usando la plantilla por defecto.</p>
+            <?php endif; ?>
+        </div>
+    </details>
+
     <details class="acordeon" data-abierto-escritorio>
         <summary><span><?= icono('wallet', 'chico') ?> Portal y Mercado Pago</span><?= icono('chevron-down') ?></summary>
         <div class="acordeon-cuerpo">
@@ -138,7 +160,10 @@ $legacy = cfg('plantilla_whatsapp_legacy') === '1';
       data-confirmar="La URL actual deja de funcionar: tenés que pegar la nueva en Mercado Pago." data-confirmar-boton="Regenerar"><?= csrf_campo() ?></form>
 
 <form id="form-restaurar-plantilla" method="post" action="<?= e(url_accion('plantilla_restaurar')) ?>" data-confirmar-titulo="Restaurar plantilla"
-      data-confirmar="Se pierde tu plantilla actual y se vuelve a la de por defecto." data-confirmar-boton="Restaurar"><?= csrf_campo() ?></form>
+      data-confirmar="Se pierde tu plantilla actual y se vuelve a la de por defecto." data-confirmar-boton="Restaurar"><?= csrf_campo() ?><input type="hidden" name="tipo" value="cobro"></form>
+
+<form id="form-restaurar-plantilla-renovacion" method="post" action="<?= e(url_accion('plantilla_restaurar')) ?>" data-confirmar-titulo="Restaurar plantilla"
+      data-confirmar="Se pierde tu plantilla actual del aviso de renovación y se vuelve a la de por defecto." data-confirmar-boton="Restaurar"><?= csrf_campo() ?><input type="hidden" name="tipo" value="renovacion"></form>
 
 <form method="post" action="<?= e(url_accion('credenciales_guardar')) ?>" autocomplete="off" data-validar novalidate>
     <?= csrf_campo() ?>

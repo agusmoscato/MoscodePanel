@@ -52,7 +52,7 @@ function monto_ajustado(float $monto, float $porcentaje, string $redondeo, strin
 function calcular_ajuste(array $p): array
 {
     $marcas = implode(',', array_fill(0, count($p['clientes']), '?'));
-    $sql = "SELECT s.id, s.nombre, s.monto, s.moneda, s.tipo_cobro, c.id AS cliente_id, c.nombre AS cliente
+    $sql = "SELECT s.id, s.nombre, s.monto, s.moneda, s.tipo_cobro, s.por_cantidad, s.cantidad, c.id AS cliente_id, c.nombre AS cliente
             FROM servicios s JOIN clientes c ON c.id = s.cliente_id
             WHERE s.usuario_id = {U} AND c.usuario_id = {U} AND s.cliente_id IN ($marcas) AND s.estado " . ($p['pausados'] ? "IN ('activo','pausado')" : "= 'activo'");
     $params = $p['clientes'];
@@ -99,7 +99,13 @@ function aplicar_ajuste(array $filas, float $porcentaje): int
                 'motivo' => 'Ajuste por porcentaje (' . ($porcentaje > 0 ? '+' : '') . $porcentaje . '%)',
                 'fecha' => date('Y-m-d H:i:s'),
             ]);
-            q('UPDATE servicios SET monto = ? WHERE id = ? AND usuario_id = {U}', [$f['nuevo'], $f['id']]);
+            // Si es por cantidad, el precio por unidad sube con el mismo porcentaje (el monto queda su múltiplo exacto).
+            if ($f['por_cantidad'] && (float) $f['cantidad'] > 0) {
+                $precioUnidad = round($f['nuevo'] / (float) $f['cantidad'], 2);
+                q('UPDATE servicios SET precio_unidad = ?, monto = ? WHERE id = ? AND usuario_id = {U}', [$precioUnidad, round($precioUnidad * (float) $f['cantidad'], 2), $f['id']]);
+            } else {
+                q('UPDATE servicios SET monto = ? WHERE id = ? AND usuario_id = {U}', [$f['nuevo'], $f['id']]);
+            }
             $n++;
         }
         $pdo->commit();

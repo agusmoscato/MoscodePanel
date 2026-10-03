@@ -12,6 +12,11 @@
  *   {total_a_abonar}  total en pesos menos el saldo a favor
  *   {alias}           alias o CBU del usuario
  *   Compatibles de antes: {empresa} {detalle} {total} {yo} {portal}
+ *
+ * Aparte, el aviso de renovación anual (plantilla separada, también editable en Configuración) usa:
+ *   {saludo} {contacto} {servicio} {cuando} {fecha_vencimiento} {vigencia_desde} {vigencia_hasta}
+ *   {detalle_cantidad} {total} {precio_unidad} {unidad_singular} {tipo_dolar}
+ *   y el bloque {si_cantidad}...{fin_si_cantidad}, que solo se muestra si el servicio es por cantidad.
  */
 declare(strict_types=1);
 
@@ -22,6 +27,19 @@ function plantilla_whatsapp_actual(): string
 {
     $p = cfg('plantilla_whatsapp');
     return trim($p) !== '' ? $p : PLANTILLA_WHATSAPP_DEFECTO;
+}
+
+/**
+ * Plantilla del aviso de renovación anual (distinta de la de cobro). La parte entre {si_cantidad} y
+ * {fin_si_cantidad} solo se muestra si el servicio es por cantidad (ver renderizar_condicional()).
+ */
+const PLANTILLA_RENOVACION_DEFECTO = "{saludo} {contacto}, ¿Cómo estás?\nTe escribo por la renovación del servicio de {servicio} que vence {cuando} (exactamente el {fecha_vencimiento}).\nComo lo charlamos desde el inicio, se abona de manera anual. La renovación de {detalle_cantidad} tendría vigencia desde el {vigencia_desde} hasta el {vigencia_hasta} y tiene un valor de {total}{si_cantidad}, quedaría a razón de {precio_unidad} anuales por {unidad_singular}{fin_si_cantidad}. Este pago puede ser en efectivo o vía transferencia, ambas en pesos según el cambio del dólar {tipo_dolar} del día de la página https://dolarhoy.com/\nHay tiempo hasta la fecha del vencimiento. ¡No hay apuro!\n¡Desde ya muchas gracias!";
+
+/** Plantilla del usuario para el aviso de renovación, o la de por defecto si no editó ninguna. */
+function plantilla_renovacion_actual(): string
+{
+    $p = cfg('plantilla_renovacion');
+    return trim($p) !== '' ? $p : PLANTILLA_RENOVACION_DEFECTO;
 }
 
 /** Normaliza un teléfono argentino a formato internacional para wa.me (solo dígitos). */
@@ -94,6 +112,117 @@ function unir_con_y(array $items): string
     return implode(', ', $items) . ' y ' . $ultimo;
 }
 
+/** "175 USD" / "61800 ARS": monto con el código de moneda tal cual (sin convertir, sin símbolo $). */
+function monto_codigo_wa(float $monto, string $moneda): string
+{
+    return num_wa($monto) . ' ' . $moneda;
+}
+
+/**
+ * Descripción que se agrega al mensaje de cobro para un servicio: la cargada a mano si tiene, si no y es
+ * por cantidad, se arma sola ("4 usuarios"). $servicio: descripcion, por_cantidad, cantidad, unidad.
+ */
+function descripcion_auto_servicio(array $servicio): string
+{
+    $desc = trim((string) ($servicio['descripcion'] ?? ''));
+    if ($desc !== '') {
+        return $desc;
+    }
+    if (!($servicio['por_cantidad'] ?? false)) {
+        return '';
+    }
+    $unidad = trim((string) ($servicio['unidad'] ?? ''));
+    if ($unidad === '') {
+        return '';
+    }
+    return num_wa((float) ($servicio['cantidad'] ?? 0)) . ' ' . $unidad;
+}
+
+/**
+ * "los 7 mails con 10.00 GB de almacenamiento": artículo + cantidad + unidad + detalle, para el aviso de
+ * renovación anual de un servicio por cantidad. $servicio: cantidad, unidad, detalle.
+ */
+function detalle_cantidad_servicio(array $servicio): string
+{
+    $unidad = trim((string) ($servicio['unidad'] ?? ''));
+    if ($unidad === '') {
+        return '';
+    }
+    $cantidad = (float) ($servicio['cantidad'] ?? 0);
+    $articulo = abs($cantidad - 1) < 0.005 ? 'el' : 'los';
+    $texto = $articulo . ' ' . num_wa($cantidad) . ' ' . $unidad;
+    $detalle = trim((string) ($servicio['detalle'] ?? ''));
+    return $detalle !== '' ? $texto . ' con ' . $detalle : $texto;
+}
+
+/** "Buenos días" / "Buenas tardes" / "Buenas noches" según la hora (0-23; por defecto la actual). */
+function saludo_horario(?int $hora = null): string
+{
+    $h = $hora ?? (int) date('G');
+    if ($h < 12) {
+        return 'Buenos días';
+    }
+    return $h < 20 ? 'Buenas tardes' : 'Buenas noches';
+}
+
+/** "este mes" / "el mes que viene" / "el 05/12", según qué tan lejos está la fecha (AAAA-MM-DD) de hoy. */
+function texto_cuando_vencimiento(string $ymd): string
+{
+    $hoy = new DateTime('today');
+    $venc = new DateTime(substr($ymd, 0, 10));
+    if ($venc->format('Y-m') === $hoy->format('Y-m')) {
+        return 'este mes';
+    }
+    $siguiente = (clone $hoy)->modify('first day of next month');
+    if ($venc->format('Y-m') === $siguiente->format('Y-m')) {
+        return 'el mes que viene';
+    }
+    return 'el ' . $venc->format('d/m');
+}
+
+/**
+ * Procesa un bloque condicional "{si_TAG}...{fin_si_TAG}" de una plantilla: si $activo, deja el contenido
+ * (sin las marcas); si no, lo saca entero. Así una parte del mensaje puede aparecer solo a veces (ej. el
+ * precio por unidad, que no existe si el servicio no es por cantidad).
+ */
+function renderizar_condicional(string $plantilla, string $tag, bool $activo): string
+{
+    $patron = '~\{si_' . preg_quote($tag, '~') . '\}(.*?)\{fin_si_' . preg_quote($tag, '~') . '\}~s';
+    return (string) preg_replace_callback($patron, fn($m) => $activo ? $m[1] : '', $plantilla);
+}
+
+/**
+ * Variables (con sus llaves, listas para strtr) del aviso de renovación anual, a partir del cliente y el
+ * servicio. No toca la base: $tipoDolarTexto ya viene resuelto (ej. "blue", "MEP").
+ */
+function datos_mensaje_renovacion(array $cliente, array $servicio, string $tipoDolarTexto): array
+{
+    $contactoCompleto = trim((string) ($cliente['contacto'] ?? ''));
+    $nombreCliente = (string) ($cliente['nombre'] ?? '');
+    $pila = $contactoCompleto !== '' ? (preg_split('/\s+/u', $contactoCompleto)[0] ?? $contactoCompleto) : $nombreCliente;
+
+    $vencimiento = substr((string) $servicio['proximo_vencimiento'], 0, 10);
+    $desde = new DateTime($vencimiento);
+    $hasta = (clone $desde)->modify('+1 year');
+    $porCantidad = (bool) ($servicio['por_cantidad'] ?? false);
+    $unidadSingular = trim((string) ($servicio['unidad_singular'] ?? '')) ?: trim((string) ($servicio['unidad'] ?? ''));
+
+    return [
+        '{saludo}'            => saludo_horario(),
+        '{contacto}'          => $pila,
+        '{servicio}'          => (string) $servicio['nombre'],
+        '{cuando}'            => texto_cuando_vencimiento($vencimiento),
+        '{fecha_vencimiento}' => $desde->format('d/m'),
+        '{vigencia_desde}'    => $desde->format('d/m/Y'),
+        '{vigencia_hasta}'    => $hasta->format('d/m/Y'),
+        '{detalle_cantidad}'  => $porCantidad ? detalle_cantidad_servicio($servicio) : (string) $servicio['nombre'],
+        '{total}'             => monto_codigo_wa((float) $servicio['monto'], (string) $servicio['moneda']),
+        '{precio_unidad}'     => monto_codigo_wa((float) ($servicio['precio_unidad'] ?? 0), (string) $servicio['moneda']),
+        '{unidad_singular}'   => $unidadSingular,
+        '{tipo_dolar}'        => $tipoDolarTexto,
+    ];
+}
+
 // --- Datos del cobro ----------------------------------------------------------------------------------
 
 /**
@@ -104,6 +233,7 @@ function cargos_para_cobro(int $clienteId): array
 {
     $filas = filas(
         "SELECT ca.*, (ca.monto - ca.monto_pagado) AS saldo, s.nombre AS serv_nombre, s.descripcion AS serv_desc,
+                s.por_cantidad AS serv_por_cantidad, s.cantidad AS serv_cantidad, s.unidad AS serv_unidad,
                 d.dominio AS dom_nombre, pl.concepto AS plan_concepto, pl.descripcion AS plan_desc
          FROM cargos ca
          LEFT JOIN servicios s ON s.id = ca.servicio_id AND s.usuario_id = {U}
@@ -120,7 +250,12 @@ function cargos_para_cobro(int $clienteId): array
             $f['desc'] = (string) $f['plan_desc'];
         } elseif ($f['servicio_id'] !== null && $f['serv_nombre'] !== null) {
             $f['nombre'] = (string) $f['serv_nombre'];
-            $f['desc'] = (string) $f['serv_desc'];
+            $f['desc'] = descripcion_auto_servicio([
+                'descripcion'  => $f['serv_desc'],
+                'por_cantidad' => (bool) $f['serv_por_cantidad'],
+                'cantidad'     => $f['serv_cantidad'],
+                'unidad'       => $f['serv_unidad'],
+            ]);
         } elseif ($f['dominio_id'] !== null && $f['dom_nombre'] !== null) {
             $f['nombre'] = 'Dominio ' . $f['dom_nombre'];
             $f['desc'] = '';
@@ -272,6 +407,26 @@ function link_whatsapp(array $cliente): string
         return '';
     }
     return 'https://wa.me/' . $num . '?text=' . rawurlencode(mensaje_cobro($cliente));
+}
+
+/** Arma el aviso de renovación anual de $servicio (anual) para $cliente, con la plantilla del usuario. */
+function mensaje_renovacion(array $cliente, array $servicio): string
+{
+    $tiposDolar = ['blue' => 'blue', 'oficial' => 'oficial', 'mep' => 'MEP', 'ccl' => 'CCL', 'tarjeta' => 'tarjeta'];
+    $tipo = cfg('dolar_tipo', 'blue');
+    $vars = datos_mensaje_renovacion($cliente, $servicio, $tiposDolar[$tipo] ?? $tipo);
+    $plantilla = renderizar_condicional(plantilla_renovacion_actual(), 'cantidad', (bool) ($servicio['por_cantidad'] ?? false));
+    return strtr($plantilla, $vars);
+}
+
+/** Link wa.me con el aviso de renovación de $servicio, o '' si el cliente no tiene teléfono. */
+function link_whatsapp_renovacion(array $cliente, array $servicio): string
+{
+    $num = telefono_para_whatsapp((string) ($cliente['telefono'] ?? ''));
+    if ($num === '') {
+        return '';
+    }
+    return 'https://wa.me/' . $num . '?text=' . rawurlencode(mensaje_renovacion($cliente, $servicio));
 }
 
 /** Botón HTML "Cobrar por WhatsApp" (vacío si no hay teléfono o no hay deuda). */

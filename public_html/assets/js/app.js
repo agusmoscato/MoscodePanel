@@ -139,6 +139,25 @@
         }
     });
 
+    /* ---------- Aviso de renovación anual: el link de WhatsApp ya está en el href (lo abre el clic normal); ----------
+       acá solo se registra que se mandó, por fetch (un <form> que termine en wa.me chocaría con la CSP). */
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target.closest && ev.target.closest('[data-aviso-renovacion]');
+        if (!btn) { return; }
+        var tk = document.querySelector('meta[name="csrf-token"]');
+        if (!tk || !window.fetch) { return; }
+        var id = btn.getAttribute('data-aviso-renovacion');
+        var datos = new URLSearchParams({ id: id, csrf: tk.getAttribute('content') });
+        window.fetch(rutaBase('/acciones/servicio_aviso_renovacion'), { method: 'POST', body: datos, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.ok) { return; }
+                var estado = $('[data-aviso-estado="' + id + '"]');
+                if (estado) { estado.textContent = 'aviso enviado el ' + data.fecha; }
+            })
+            .catch(function () {});
+    });
+
     /* ---------- Toasts (los mensajes flash del servidor llegan en #flash-data) ---------- */
     var iconoToast = { ok: 'circle-check', error: 'circle-alert', aviso: 'triangle-alert' };
     function toast(tipo, mensaje) {
@@ -518,6 +537,22 @@
             estado.textContent = 'Suma: ' + fmt(suma) + ' — ' + (dif > 0 ? 'faltan ' : 'sobran ') + fmt(Math.abs(dif)) + ' para llegar al total.';
             estado.classList.add('error');
         }
+    }
+    campos.forEach(function (c) { c.addEventListener('input', recalcular); });
+    recalcular();
+})();
+
+/* ---------- Servicio por cantidad: el monto se previsualiza solo (cantidad × precio por unidad) ---------- */
+(function () {
+    'use strict';
+    var caja = document.querySelector('[data-calc-cantidad]');
+    if (!caja) { return; }
+    var resultado = caja.querySelector('[data-calc-resultado]');
+    var campos = caja.querySelectorAll('[data-calc-factor]');
+    function recalcular() {
+        var n = 1;
+        campos.forEach(function (c) { n *= parseFloat(c.value) || 0; });
+        resultado.textContent = n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     campos.forEach(function (c) { c.addEventListener('input', recalcular); });
     recalcular();

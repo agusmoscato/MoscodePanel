@@ -7,7 +7,7 @@ $cliente = fila('SELECT id, nombre FROM clientes WHERE id = ? AND usuario_id = {
 if (!$cliente) {
     redirigir(url('clientes'));
 }
-$s = $s ?? ['nombre' => '', 'descripcion' => '', 'monto' => '', 'moneda' => 'ARS', 'tipo_cobro' => 'mensual', 'fecha_inicio' => date('Y-m-d'), 'proximo_vencimiento' => '', 'dias_anticipo' => ANTICIPO_POR_DEFECTO_DIAS, 'inicio_mensual' => 'mes_siguiente', 'estado' => 'activo'];
+$s = $s ?? ['nombre' => '', 'descripcion' => '', 'monto' => '', 'moneda' => 'ARS', 'tipo_cobro' => 'mensual', 'fecha_inicio' => date('Y-m-d'), 'proximo_vencimiento' => '', 'dias_anticipo' => ANTICIPO_POR_DEFECTO_DIAS, 'inicio_mensual' => 'mes_siguiente', 'estado' => 'activo', 'por_cantidad' => 0, 'cantidad' => '', 'unidad' => '', 'unidad_singular' => '', 'precio_unidad' => '', 'detalle' => ''];
 $titulo = $id ? 'Editar servicio' : 'Nuevo servicio';
 $hist = $id ? filas('SELECT * FROM servicios_precios_hist WHERE usuario_id = {U} AND servicio_id = ? ORDER BY fecha DESC LIMIT 20', [$id]) : [];
 $volver = url('cliente', ['id' => $clienteId]);
@@ -31,9 +31,11 @@ $volver = url('cliente', ['id' => $clienteId]);
             <input name="descripcion" maxlength="255" placeholder="Ej: renovación anual" value="<?= e(viejo('descripcion', (string) ($s['descripcion'] ?? ''))) ?>">
         </label>
         <div class="fila-campos c2">
-            <label>Monto
-                <input type="number" name="monto" inputmode="decimal" required min="0" step="0.01" placeholder="0,00" value="<?= e(viejo('monto', (string) $s['monto'])) ?>">
-            </label>
+            <div data-mostrar-si="por_cantidad=0">
+                <label>Monto
+                    <input type="number" name="monto" inputmode="decimal" min="0" step="0.01" placeholder="0,00" value="<?= e(viejo('monto', (string) $s['monto'])) ?>">
+                </label>
+            </div>
             <div>
                 <span class="etq">Moneda</span>
                 <div class="segmentado" role="radiogroup" aria-label="Moneda">
@@ -42,6 +44,32 @@ $volver = url('cliente', ['id' => $clienteId]);
                     <?php endforeach; ?>
                 </div>
             </div>
+        </div>
+
+        <label class="check"><input type="checkbox" name="por_cantidad" value="1"<?= viejo('por_cantidad', (string) $s['por_cantidad']) === '1' ? ' checked' : '' ?>>Cobro por cantidad
+            <span class="inline ayuda">(Google Workspace por usuarios, casillas de mail por cuenta…)</span></label>
+
+        <div data-mostrar-si="por_cantidad=1" data-calc-cantidad>
+            <div class="fila-campos c2">
+                <label>Cantidad
+                    <input type="number" name="cantidad" inputmode="decimal" min="0" step="0.01" placeholder="0" value="<?= e(viejo('cantidad', (string) $s['cantidad'])) ?>" data-calc-factor>
+                </label>
+                <label>Precio por unidad
+                    <input type="number" name="precio_unidad" inputmode="decimal" min="0" step="0.01" placeholder="0,00" value="<?= e(viejo('precio_unidad', (string) $s['precio_unidad'])) ?>" data-calc-factor>
+                </label>
+            </div>
+            <div class="fila-campos c2">
+                <label>Unidad <span class="inline ayuda">(plural)</span>
+                    <input name="unidad" maxlength="60" placeholder="usuarios, cuentas de mail…" value="<?= e(viejo('unidad', (string) $s['unidad'])) ?>">
+                </label>
+                <label>Unidad en singular <span class="inline ayuda">(opcional, para el aviso de renovación)</span>
+                    <input name="unidad_singular" maxlength="60" placeholder="usuario, cuenta de mail…" value="<?= e(viejo('unidad_singular', (string) $s['unidad_singular'])) ?>">
+                </label>
+            </div>
+            <label>Detalle opcional <span class="inline ayuda">(se agrega al aviso de renovación)</span>
+                <input name="detalle" maxlength="160" placeholder="Ej: 10.00 GB de almacenamiento" value="<?= e(viejo('detalle', (string) $s['detalle'])) ?>">
+            </label>
+            <p class="ayuda">El monto se calcula solo: cantidad × precio por unidad = <strong data-calc-resultado>0,00</strong>.</p>
         </div>
     </section>
 

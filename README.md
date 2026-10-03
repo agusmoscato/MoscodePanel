@@ -116,6 +116,8 @@ Una instalación nueva con `install.php` ya trae todo. Si ya instalaste antes, i
 - **Notificaciones** por email (SMTP propio, sin librerías) y por Telegram, con registro de todo lo enviado.
 - **Mensaje de cobro por WhatsApp** (botón en la ficha del cliente y en la lista de deudores).
 - **Ajuste de precios** por porcentaje con vista previa e historial (menú Precios).
+- **Servicios por cantidad**: cantidad × precio por unidad (ej. Google Workspace por usuarios, casillas de mail por cuenta). El monto se calcula solo y, si cambia la cantidad, queda en el historial de precios como cualquier otro cambio.
+- **Aviso de renovación anual por WhatsApp**: plantilla propia (Configuración → Aviso de renovación anual), separada de la de cobro. Se ofrece en la ficha del cliente y en Vencimientos cuando un servicio anual vence en los próximos 60 días, y queda registrada la fecha en que se mandó.
 
 ## Configurar SMTP y Telegram (`privado/config.php`)
 
@@ -720,6 +722,10 @@ Corré primero el verificador (por SSH o con un Cron Job de una sola vez) y leé
 5. Si usabas el cron por URL, pasá a la cabecera `X-Cron-Token` con un token de 32+ caracteres (o mejor, a consola).
 6. Agregá los Cron Jobs de **backup** y **mantenimiento**.
 7. Corré `php privado/scripts/verificar_servidor.php --web` y revisá el resultado.
+
+## Servicios por cantidad y aviso de renovación anual (esta actualización)
+
+Si ya tenías el panel instalado, importá **una sola vez** `privado/install/migracion_008.sql` en phpMyAdmin (después de la 007): agrega a `servicios` las columnas de cobro por cantidad (`por_cantidad`, `cantidad`, `unidad`, `unidad_singular`, `precio_unidad`, `detalle`) y la fecha del último aviso de renovación enviado (`aviso_renovacion_enviado_en`). Una instalación nueva con `install.php` ya la trae. Podés correr `php tests/pruebas_mensajes.php` para verificar las funciones de los mensajes (no toca la base).
 
 ## Pruebas de seguridad hechas
 

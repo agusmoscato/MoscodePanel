@@ -265,10 +265,11 @@ function imputar_a_cargo(int $pagoId, array $cargo, float $disponible, string $m
         [$completo ? 1 : 0, $aplicadoCargo, $completo ? 'pagado' : 'parcial', $cargo['id']]
     );
 
-    // Servicio anual cobrado completo → el próximo vencimiento pasa a un año después.
+    // Servicio anual cobrado completo → el próximo vencimiento pasa a un año después (y el aviso de
+    // renovación enviado para el vencimiento anterior ya no aplica al nuevo).
     if ($completo && $cargo['servicio_id']) {
         q(
-            "UPDATE servicios SET proximo_vencimiento = DATE_ADD(proximo_vencimiento, INTERVAL 1 YEAR)
+            "UPDATE servicios SET proximo_vencimiento = DATE_ADD(proximo_vencimiento, INTERVAL 1 YEAR), aviso_renovacion_enviado_en = NULL
              WHERE id = ? AND usuario_id = {U} AND tipo_cobro = 'anual' AND proximo_vencimiento = ?",
             [$cargo['servicio_id'], $cargo['fecha_vencimiento']]
         );
@@ -424,7 +425,7 @@ function anular_pago(int $pagoId, string $motivo, int $actorId): array
             // Un servicio anual cobrado completo había corrido su próximo vencimiento un año: se deshace
             if ($estaba === 'pagado' && $nuevoEstado !== 'pagado' && $c['servicio_id']) {
                 q(
-                    "UPDATE servicios SET proximo_vencimiento = DATE_SUB(proximo_vencimiento, INTERVAL 1 YEAR)
+                    "UPDATE servicios SET proximo_vencimiento = DATE_SUB(proximo_vencimiento, INTERVAL 1 YEAR), aviso_renovacion_enviado_en = NULL
                      WHERE id = ? AND usuario_id = {U} AND tipo_cobro = 'anual' AND proximo_vencimiento = DATE_ADD(?, INTERVAL 1 YEAR)",
                     [$c['servicio_id'], $c['fecha_vencimiento']]
                 );
