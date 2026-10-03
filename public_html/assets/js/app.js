@@ -139,20 +139,22 @@
         }
     });
 
-    /* ---------- Aviso de renovación anual: el link de WhatsApp ya está en el href (lo abre el clic normal); ----------
-       acá solo se registra que se mandó, por fetch (un <form> que termine en wa.me chocaría con la CSP). */
+    /* ---------- Aviso de renovación anual (servicio o dominio): el link de WhatsApp ya está en el href ----------
+       (lo abre el clic normal); acá solo se registra que se mandó, por fetch (un <form> que termine en wa.me
+       chocaría con la CSP). data-aviso-renovacion="servicio:3" o "dominio:5". */
     document.addEventListener('click', function (ev) {
         var btn = ev.target.closest && ev.target.closest('[data-aviso-renovacion]');
         if (!btn) { return; }
         var tk = document.querySelector('meta[name="csrf-token"]');
         if (!tk || !window.fetch) { return; }
-        var id = btn.getAttribute('data-aviso-renovacion');
-        var datos = new URLSearchParams({ id: id, csrf: tk.getAttribute('content') });
-        window.fetch(rutaBase('/acciones/servicio_aviso_renovacion'), { method: 'POST', body: datos, credentials: 'same-origin' })
+        var clave = btn.getAttribute('data-aviso-renovacion');
+        var partes = clave.split(':');
+        var datos = new URLSearchParams({ tipo: partes[0], id: partes[1], csrf: tk.getAttribute('content') });
+        window.fetch(rutaBase('/acciones/aviso_renovacion_enviar'), { method: 'POST', body: datos, credentials: 'same-origin' })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (data) {
                 if (!data || !data.ok) { return; }
-                var estado = $('[data-aviso-estado="' + id + '"]');
+                var estado = $('[data-aviso-estado="' + clave + '"]');
                 if (estado) { estado.textContent = 'aviso enviado el ' + data.fecha; }
             })
             .catch(function () {});

@@ -8,5 +8,5 @@
  * Formato sugerido: AAAA.MM.DD-N  (N = número de deploy del día).
  */
 if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '2026.10.03-2');
+    define('APP_VERSION', '2026.10.03-3');
 }

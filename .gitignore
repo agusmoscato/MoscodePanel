@@ -13,3 +13,8 @@ privado/backups/
 .DS_Store
 Thumbs.db
 node_modules/
+
+# tests/: entorno portable (PHP + MariaDB) y config temporal de la base de prueba — se descargan/generan solos,
+# ver tests/README.md
+tests/.tools/
+tests/.entorno/

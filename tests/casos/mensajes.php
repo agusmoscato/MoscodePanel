@@ -1,44 +1,13 @@
 <?php
 /**
- * pruebas_mensajes.php — Pruebas de las funciones puras de mensajes (servicios por cantidad y aviso de
- * renovación anual). No usan la base: solo arman arrays a mano y verifican el texto que sale.
- *
- *   php tests/pruebas_mensajes.php
- *
- * Cada línea dice OK o FALLÓ. Si algo falla, termina con código de salida 1 (sirve para CI).
+ * mensajes.php — Funciones puras de mensajes (servicios por cantidad y aviso de renovación anual). No usan
+ * la base: solo arman arrays a mano y verifican el texto que sale.
  */
 declare(strict_types=1);
 
-if (PHP_SAPI !== 'cli') {
-    http_response_code(403);
-    exit('Este script solo se ejecuta por consola.');
-}
-
-require dirname(__DIR__) . '/privado/includes/helpers.php';
-require dirname(__DIR__) . '/privado/includes/whatsapp.php';
-
-$fallos = 0;
-$pruebas = 0;
-
-function verificar(string $nombre, $esperado, $real): void
-{
-    global $fallos, $pruebas;
-    $pruebas++;
-    if ($esperado === $real) {
-        echo "OK      $nombre\n";
-        return;
-    }
-    $fallos++;
-    echo "FALLÓ   $nombre\n        esperado: " . var_export($esperado, true) . "\n        obtenido: " . var_export($real, true) . "\n";
-}
-
-function verificar_contiene(string $nombre, string $aguja, string $pajar): void
-{
-    verificar($nombre, true, str_contains($pajar, $aguja));
-}
-
 // --- descripcion_auto_servicio(): la {descripcion} del mensaje de cobro ---------------------------------
 
+seccion('descripcion_auto_servicio()');
 verificar(
     'descripcion manual: se respeta aunque el servicio sea por cantidad',
     'renovación anual',
@@ -57,6 +26,7 @@ verificar(
 
 // --- detalle_cantidad_servicio(): para el aviso de renovación -------------------------------------------
 
+seccion('detalle_cantidad_servicio()');
 verificar(
     'detalle de cantidad con detalle opcional',
     'los 7 mails con 10.00 GB de almacenamiento',
@@ -75,11 +45,13 @@ verificar(
 
 // --- monto_codigo_wa(): montos con el código de moneda, sin convertir -----------------------------------
 
+seccion('monto_codigo_wa()');
 verificar('monto entero con código de moneda', '175 USD', monto_codigo_wa(175.0, 'USD'));
 verificar('monto con decimales con código de moneda', '61.800,50 ARS', monto_codigo_wa(61800.5, 'ARS'));
 
 // --- saludo_horario(): según la hora ---------------------------------------------------------------------
 
+seccion('saludo_horario()');
 verificar('saludo a las 9 (mañana)', 'Buenos días', saludo_horario(9));
 verificar('saludo a las 11 (límite mañana)', 'Buenos días', saludo_horario(11));
 verificar('saludo a las 12 (mediodía)', 'Buenas tardes', saludo_horario(12));
@@ -89,6 +61,7 @@ verificar('saludo a las 23', 'Buenas noches', saludo_horario(23));
 
 // --- texto_cuando_vencimiento(): relativo a hoy -----------------------------------------------------------
 
+seccion('texto_cuando_vencimiento()');
 $hoy = new DateTime('today');
 verificar('vencimiento hoy mismo: "este mes"', 'este mes', texto_cuando_vencimiento($hoy->format('Y-m-d')));
 $finDeMes = (clone $hoy)->modify('last day of this month');
@@ -100,6 +73,7 @@ verificar('vencimiento lejano: "el dd/mm"', 'el ' . $lejos->format('d/m'), texto
 
 // --- renderizar_condicional(): bloque {si_cantidad}...{fin_si_cantidad} ----------------------------------
 
+seccion('renderizar_condicional()');
 $plantillaCond = 'Valor: {total}{si_cantidad}, a razón de {precio_unidad}{fin_si_cantidad}. Gracias.';
 verificar(
     'bloque condicional activo: se conserva el contenido (sin las marcas)',
@@ -114,6 +88,7 @@ verificar(
 
 // --- datos_mensaje_renovacion() + plantilla por defecto: integración completa ----------------------------
 
+seccion('datos_mensaje_renovacion() + PLANTILLA_RENOVACION_DEFECTO (servicio por cantidad)');
 $servicioCantidad = [
     'nombre' => 'los mails', 'proximo_vencimiento' => $hoy->format('Y-m-d'), 'monto' => 175.0, 'moneda' => 'USD',
     'por_cantidad' => true, 'cantidad' => 7, 'unidad' => 'mails', 'unidad_singular' => 'cuenta de mail',
@@ -145,7 +120,7 @@ verificar_contiene(
     $mensaje
 );
 
-// Mismo servicio pero SIN cantidad: no debe mencionar "quedaría a razón de" y usa el nombre como detalle.
+seccion('mismo servicio pero SIN cantidad');
 $servicioSinCantidad = $servicioCantidad;
 $servicioSinCantidad['por_cantidad'] = false;
 $varsSinCantidad = datos_mensaje_renovacion($cliente, $servicioSinCantidad, 'blue');
@@ -156,7 +131,12 @@ $mensajeSinCantidad = strtr($plantillaSinCantidad, $varsSinCantidad);
 verificar('mensaje (sin cantidad): no menciona el precio por unidad', false, str_contains($mensajeSinCantidad, 'quedaría a razón de'));
 verificar_contiene('mensaje (sin cantidad): el valor termina la oración con punto', 'tiene un valor de 175 USD. Este pago puede ser', $mensajeSinCantidad);
 
-// --- Resumen -----------------------------------------------------------------------------------------------
-
-echo "\n$pruebas pruebas, " . ($pruebas - $fallos) . " OK, $fallos fallaron.\n";
-exit($fallos > 0 ? 1 : 0);
+seccion('item_renovacion_dominio(): un dominio se adapta al mismo formato');
+$dominio = ['dominio' => 'midominio.com.ar', 'fecha_vencimiento' => $hoy->format('Y-m-d'), 'precio_cliente' => 2000.0, 'moneda_precio' => 'ARS'];
+$itemDominio = item_renovacion_dominio($dominio);
+verificar('adaptado: por_cantidad es false', false, $itemDominio['por_cantidad']);
+$varsDominio = datos_mensaje_renovacion($cliente, $itemDominio, 'blue');
+verificar('vars de dominio: {servicio} es el nombre del dominio', 'midominio.com.ar', $varsDominio['{servicio}']);
+verificar('vars de dominio: {detalle_cantidad} cae al nombre del dominio', 'midominio.com.ar', $varsDominio['{detalle_cantidad}']);
+$mensajeDominio = strtr(renderizar_condicional(PLANTILLA_RENOVACION_DEFECTO, 'cantidad', false), $varsDominio);
+verificar('mensaje de dominio: no menciona el precio por unidad', false, str_contains($mensajeDominio, 'quedaría a razón de'));

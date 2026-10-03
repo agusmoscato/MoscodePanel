@@ -1,5 +1,9 @@
 <?php
-/** Renueva un dominio por un año y, opcionalmente, genera el cargo al cliente (una sola vez por clic). */
+/**
+ * Renueva un dominio por un año (esto se hace DESPUÉS de renovarlo de verdad en el proveedor). No cambia el
+ * cargo: si todavía no existe el de este período (el anticipo automático no llegó a generarlo, o el precio
+ * recién se cargó), lo crea acá; si ya existe, lo usa y no duplica (ver generar_cargo_dominio()).
+ */
 $id = (int) post('id', '0');
 $esperada = post('vence');          // la fecha de vencimiento que se veía al renovar: si ya cambió, es un doble clic
 $dom = fila("SELECT * FROM dominios WHERE id = ? AND usuario_id = {U} AND estado = 'activo'", [$id]);
@@ -16,15 +20,17 @@ $pdo = db();
 $pdo->beginTransaction();
 try {
     // UPDATE condicionado a la fecha esperada: dos pedidos simultáneos no suman dos años
-    $n = q('UPDATE dominios SET fecha_vencimiento = ? WHERE id = ? AND usuario_id = {U} AND fecha_vencimiento = ?', [$nuevo, $id, $dom['fecha_vencimiento']])->rowCount();
+    $n = q(
+        'UPDATE dominios SET fecha_vencimiento = ?, aviso_renovacion_enviado_en = NULL WHERE id = ? AND usuario_id = {U} AND fecha_vencimiento = ?',
+        [$nuevo, $id, $dom['fecha_vencimiento']]
+    )->rowCount();
     if ($n !== 1) {
         throw new RuntimeException('Ese dominio ya se renovó.');
     }
     $msg = 'Dominio renovado hasta ' . fmt_fecha($nuevo) . '.';
-    if (post('generar_cargo') === '1') {
-        $msg .= generar_cargo_dominio($dom, $nuevo)
-            ? ' Se generó el cargo al cliente.'
-            : ' No se generó cargo (precio al cliente en cero o ya existía).';
+    if ((float) $dom['precio_cliente'] > 0) {
+        // $dom todavía tiene la fecha VIEJA (la leída antes del UPDATE): es el período que se está cerrando.
+        $msg .= generar_cargo_dominio($dom) ? ' Se generó el cargo al cliente.' : ' Ya existía el cargo de este período.';
     }
     $pdo->commit();
 } catch (Throwable $ex) {

@@ -146,7 +146,7 @@ function ejecutar_resumen_mensual(bool $forzar = false, bool $actualizarDolar = 
     }
 
     $r = generar_cargos($periodo);
-    $log[] = "Cargos generados: {$r['mensuales']} mensuales, {$r['anuales']} anuales.";
+    $log[] = "Cargos generados: {$r['mensuales']} mensuales, {$r['anuales']} anuales, {$r['dominios']} de dominios.";
 
     [$texto, $n] = texto_resumen_deuda($periodo, cotizacion_valor());
     $res = notificar(

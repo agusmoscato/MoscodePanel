@@ -7,7 +7,8 @@ $volver = $id ? url('dominio_form', ['id' => $id]) : url('dominio_form', ['clien
 if (!cliente_propio($clienteId)) {
     redirigir(url('clientes'));
 }
-if ($id && !fila('SELECT id FROM dominios WHERE id = ? AND cliente_id = ? AND usuario_id = {U}', [$id, $clienteId])) {
+$actual = $id ? fila('SELECT * FROM dominios WHERE id = ? AND cliente_id = ? AND usuario_id = {U}', [$id, $clienteId]) : null;
+if ($id && !$actual) {
     redirigir(url('cliente', ['id' => $clienteId]));
 }
 
@@ -15,12 +16,16 @@ $d = [
     'dominio'           => mb_strtolower(post('dominio')),
     'proveedor'         => post('proveedor'),
     'fecha_vencimiento' => post('fecha_vencimiento'),
+    'dias_anticipo'     => (int) post('dias_anticipo', (string) ANTICIPO_POR_DEFECTO_DIAS),
     'costo_renovacion'  => parsear_monto(post('costo_renovacion', '0')) ?? -1.0,
     'moneda_costo'      => post('moneda_costo', 'ARS'),
     'precio_cliente'    => parsear_monto(post('precio_cliente', '0')) ?? -1.0,
     'moneda_precio'     => post('moneda_precio', 'ARS'),
     'estado'            => post('estado', 'activo'),
 ];
+if ($d['dias_anticipo'] < 0 || $d['dias_anticipo'] > 365) {
+    volver_con_error('Los días de anticipo deben estar entre 0 y 365.', $volver);
+}
 if ($d['dominio'] === '') {
     volver_con_error('El nombre del dominio es obligatorio.', $volver);
 }
@@ -45,6 +50,9 @@ if (!in_array($d['moneda_costo'], ['ARS', 'USD'], true) || !in_array($d['moneda_
 }
 
 if ($id) {
+    if ($actual['fecha_vencimiento'] !== $d['fecha_vencimiento']) {
+        $d['aviso_renovacion_enviado_en'] = null;   // cambió la fecha de vencimiento: el aviso anterior ya no aplica
+    }
     actualizar('dominios', $id, $d);
     flash('ok', 'Dominio actualizado.');
 } else {

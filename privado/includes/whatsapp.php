@@ -409,7 +409,30 @@ function link_whatsapp(array $cliente): string
     return 'https://wa.me/' . $num . '?text=' . rawurlencode(mensaje_cobro($cliente));
 }
 
-/** Arma el aviso de renovación anual de $servicio (anual) para $cliente, con la plantilla del usuario. */
+/**
+ * Adapta un dominio al formato que esperan mensaje_renovacion() / link_whatsapp_renovacion() (el mismo que un
+ * servicio anual, pero nunca es "por cantidad"). El dominio en sí es {servicio} en el mensaje.
+ */
+function item_renovacion_dominio(array $dominio): array
+{
+    return [
+        'nombre'              => $dominio['dominio'],
+        'proximo_vencimiento' => $dominio['fecha_vencimiento'],
+        'monto'               => $dominio['precio_cliente'],
+        'moneda'              => $dominio['moneda_precio'],
+        'por_cantidad'        => false,
+        'cantidad'            => null,
+        'unidad'              => '',
+        'unidad_singular'     => '',
+        'detalle'             => '',
+        'precio_unidad'       => null,
+    ];
+}
+
+/**
+ * Arma el aviso de renovación anual para $cliente, con la plantilla del usuario. $servicio es un servicio
+ * anual o un dominio ya adaptado con item_renovacion_dominio().
+ */
 function mensaje_renovacion(array $cliente, array $servicio): string
 {
     $tiposDolar = ['blue' => 'blue', 'oficial' => 'oficial', 'mep' => 'MEP', 'ccl' => 'CCL', 'tarjeta' => 'tarjeta'];

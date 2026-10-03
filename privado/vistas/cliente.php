@@ -101,11 +101,11 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
                         <span class="suave">desde <?= e(fecha_corta($s['fecha_inicio'])) ?></span>
                     </div>
                     <?php if ($dd !== null): ?>
-                    <div class="suave" data-aviso-estado="<?= (int) $s['id'] ?>"><?= $s['aviso_renovacion_enviado_en'] ? 'aviso enviado el ' . e(date('d/m', strtotime($s['aviso_renovacion_enviado_en']))) : '' ?></div>
+                    <div class="suave" data-aviso-estado="servicio:<?= (int) $s['id'] ?>"><?= $s['aviso_renovacion_enviado_en'] ? 'aviso enviado el ' . e(date('d/m', strtotime($s['aviso_renovacion_enviado_en']))) : '' ?></div>
                     <?php endif; ?>
                     <div class="mini-acc">
                         <?php if ($ofrecerAviso): ?>
-                        <a class="btn sec chico" href="<?= e(link_whatsapp_renovacion($c, $s)) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="<?= (int) $s['id'] ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
+                        <a class="btn sec chico" href="<?= e(link_whatsapp_renovacion($c, $s)) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="servicio:<?= (int) $s['id'] ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
                         <?php endif; ?>
                         <a class="btn sec chico" href="<?= e(url('servicio_form', ['id' => $s['id']])) ?>"><?= icono('pencil', 'chico') ?>Editar</a>
                     </div>
@@ -124,7 +124,9 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
                 <a class="btn" href="<?= e(url('dominio_form', ['cliente_id' => $id])) ?>"><?= icono('plus') ?>Agregar dominio</a></div></div>
         <?php else: ?>
             <div class="cards-grid">
-            <?php foreach ($dominios as $d): $dd = dias_hasta($d['fecha_vencimiento']); ?>
+            <?php foreach ($dominios as $d):
+                $dd = dias_hasta($d['fecha_vencimiento']);
+                $ofrecerAvisoDom = $d['estado'] === 'activo' && $dd <= 7 && $c['telefono'] !== ''; ?>
                 <article class="mini<?= $d['estado'] === 'baja' ? ' apagada' : '' ?>">
                     <div class="mini-cab">
                         <div class="mini-tit mono"><?= e($d['dominio']) ?></div>
@@ -138,15 +140,20 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
                         <div><small>Costo (vos pagás)</small><?= monto_html($d['costo_renovacion'], $d['moneda_costo']) ?></div>
                         <div><small>Precio al cliente</small><?= monto_html($d['precio_cliente'], $d['moneda_precio']) ?></div>
                     </div>
+                    <?php if ($d['estado'] === 'activo'): ?>
+                    <div class="suave" data-aviso-estado="dominio:<?= (int) $d['id'] ?>"><?= $d['aviso_renovacion_enviado_en'] ? 'aviso enviado el ' . e(date('d/m', strtotime($d['aviso_renovacion_enviado_en']))) : '' ?></div>
+                    <?php endif; ?>
                     <div class="mini-acc">
                         <?php if ($d['estado'] === 'activo'): ?>
                         <form class="en-linea acc-renovar" method="post" action="<?= e(url_accion('dominio_renovar')) ?>"
-                              data-confirmar-titulo="Renovar dominio" data-confirmar="¿Renovar <?= e($d['dominio']) ?> por un año más?" data-confirmar-boton="Renovar">
+                              data-confirmar-titulo="Renovar dominio" data-confirmar="¿Renovar <?= e($d['dominio']) ?> por un año más? (Hacelo después de renovarlo en el proveedor.)" data-confirmar-boton="Renovar">
                             <?= csrf_campo() ?><?= nonce_campo() ?><input type="hidden" name="vence" value="<?= e($d['fecha_vencimiento']) ?>">
                             <input type="hidden" name="id" value="<?= (int) $d['id'] ?>">
-                            <label class="check chico-check"><input type="checkbox" name="generar_cargo" value="1" checked>Cobrar</label>
                             <button class="btn chico" type="submit"><?= icono('refresh-cw', 'chico') ?>Renovar</button>
                         </form>
+                        <?php if ($ofrecerAvisoDom): ?>
+                        <a class="btn sec chico" href="<?= e(link_whatsapp_renovacion($c, item_renovacion_dominio($d))) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="dominio:<?= (int) $d['id'] ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <a class="btn sec chico" href="<?= e(url('dominio_form', ['id' => $d['id']])) ?>"><?= icono('pencil', 'chico') ?>Editar</a>
                     </div>

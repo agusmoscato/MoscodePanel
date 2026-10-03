@@ -117,7 +117,8 @@ Una instalación nueva con `install.php` ya trae todo. Si ya instalaste antes, i
 - **Mensaje de cobro por WhatsApp** (botón en la ficha del cliente y en la lista de deudores).
 - **Ajuste de precios** por porcentaje con vista previa e historial (menú Precios).
 - **Servicios por cantidad**: cantidad × precio por unidad (ej. Google Workspace por usuarios, casillas de mail por cuenta). El monto se calcula solo y, si cambia la cantidad, queda en el historial de precios como cualquier otro cambio.
-- **Aviso de renovación anual por WhatsApp**: plantilla propia (Configuración → Aviso de renovación anual), separada de la de cobro. Se ofrece en la ficha del cliente y en Vencimientos cuando un servicio anual vence en los próximos 60 días, y queda registrada la fecha en que se mandó.
+- **Aviso de renovación anual por WhatsApp**: plantilla propia (Configuración → Aviso de renovación anual), separada de la de cobro. Se ofrece en la ficha del cliente y en Vencimientos cuando un servicio anual vence en los próximos 60 días (7 para dominios), y queda registrada la fecha en que se mandó.
+- **Cobro automático de dominios**: igual que un servicio anual, el cargo se genera solo con los días de anticipo configurados por dominio; cobrarlo no mueve la fecha de vencimiento (eso lo hace aparte el botón "Renovar", después de renovarlo de verdad en el proveedor).
 
 ## Configurar SMTP y Telegram (`privado/config.php`)
 
@@ -723,9 +724,33 @@ Corré primero el verificador (por SSH o con un Cron Job de una sola vez) y leé
 6. Agregá los Cron Jobs de **backup** y **mantenimiento**.
 7. Corré `php privado/scripts/verificar_servidor.php --web` y revisá el resultado.
 
-## Servicios por cantidad y aviso de renovación anual (esta actualización)
+## Servicios por cantidad, cobro automático de dominios y avisos de renovación (esta actualización)
 
-Si ya tenías el panel instalado, importá **una sola vez** `privado/install/migracion_008.sql` en phpMyAdmin (después de la 007): agrega a `servicios` las columnas de cobro por cantidad (`por_cantidad`, `cantidad`, `unidad`, `unidad_singular`, `precio_unidad`, `detalle`) y la fecha del último aviso de renovación enviado (`aviso_renovacion_enviado_en`). Una instalación nueva con `install.php` ya la trae. Podés correr `php tests/pruebas_mensajes.php` para verificar las funciones de los mensajes (no toca la base).
+Si ya tenías el panel instalado, importá en phpMyAdmin, **una sola vez cada una y en orden**:
+
+- `privado/install/migracion_008.sql` (después de la 007): agrega a `servicios` las columnas de cobro por cantidad (`por_cantidad`, `cantidad`, `unidad`, `unidad_singular`, `precio_unidad`, `detalle`) y la fecha del último aviso de renovación enviado (`aviso_renovacion_enviado_en`).
+- `privado/install/migracion_009.sql` (después de la 008): agrega a `dominios` los días de anticipo del cargo (`dias_anticipo`, igual que en los servicios anuales) y la fecha del último aviso de renovación enviado (`aviso_renovacion_enviado_en`). No hace falta cargar nada a mano para los dominios existentes: la próxima vez que se generen los cargos (botón "Generar cargos del mes", o el resumen mensual automático) los que ya estén dentro de sus días de anticipo generan su cargo solos.
+
+Una instalación nueva con `install.php` ya trae las dos. Ver "Probar el proyecto" más abajo para correr las pruebas automáticas.
+
+### Cobro de dominios: cómo funciona ahora
+
+Antes, el cargo de renovación de un dominio solo se generaba en el momento de tocar "Renovar" (y solo si se tildaba una casilla "Cobrar" que ya no existe). Si ese clic no pasaba exactamente así — casilla destildada, o la fecha se editaba a mano desde "Editar dominio" en vez de "Renovar" — el cargo nunca se creaba, sin ningún aviso. Ahora cada dominio se cobra igual que un servicio anual:
+
+- Con **precio al cliente mayor a 0**, el cargo se genera solo cuando faltan sus **días de anticipo** (campo nuevo en "Editar dominio", 30 por defecto) para el vencimiento, con el mismo mecanismo idempotente de siempre (no se duplica si se corre de nuevo).
+- **Cobrar el cargo no mueve la fecha de vencimiento**: el dominio se renueva aparte, en el proveedor; la fecha solo avanza al tocar **"Renovar"** (después de haberlo renovado de verdad). Si para ese momento ya existe el cargo del período (lo normal, generado por el anticipo), "Renovar" lo usa y no crea otro; si no existe todavía, lo crea ahí mismo.
+- Aparece en la deuda del cliente, en el resumen mensual, en el dashboard y en el mensaje de cobro por WhatsApp como "Dominio nombre.com", igual que cualquier otro cargo.
+- El botón **"Avisar renovación"** (misma plantilla que los servicios anuales) también está disponible para dominios, en la ficha del cliente y en Vencimientos, cuando faltan 7 días o menos y todavía no se tocó "Renovar" — esté cobrado o no.
+
+## Probar el proyecto (automático)
+
+Un solo comando corre todas las pruebas automáticas (servicios por cantidad, dominios, renovaciones, precios, aislamiento entre usuarios…) contra una base MariaDB real, de punta a punta:
+
+```
+bash tests/entorno.sh
+```
+
+La primera vez descarga PHP y MariaDB portables a `tests/.tools/` (no tocan el sistema ni el `config.php` real) y prepara la base; las siguientes veces reutiliza todo eso. Cada corrida recrea la base de pruebas desde `install.sql`, así que siempre arranca limpia. Ver `tests/README.md` para los detalles (variables de entorno, cómo agregar un caso de prueba nuevo, qué hacer si ya tenés tu propio MySQL/MariaDB).
 
 ## Pruebas de seguridad hechas
 

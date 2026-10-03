@@ -7,7 +7,7 @@
  *    correr la generación dos veces nunca duplica cargos.
  *      Servicio mensual: S{id_servicio}:{AAAA-MM}
  *      Servicio anual:   S{id_servicio}:{fecha de vencimiento}
- *      Dominio:          D{id_dominio}:{fecha de vencimiento nueva}
+ *      Dominio:          D{id_dominio}:{fecha de vencimiento actual} (no cambia al cobrarlo: solo "Renovar" la mueve)
  *      Cuota de un plan: P{id_plan}:{número de cuota}
  *  - La deuda no se guarda: se calcula sumando (monto - monto_pagado) de los cargos EXIGIBLES.
  *    Un cargo común es exigible desde que existe; una CUOTA de un plan de pago solo desde su fecha de
@@ -76,16 +76,16 @@ function crear_cargo(array $d): bool
 }
 
 /**
- * Genera los cargos mensuales del período (AAAA-MM) y los cargos de servicios anuales
- * que vencen dentro de los próximos días de anticipo. Idempotente.
- * Devuelve ['mensuales' => n creados, 'anuales' => n creados].
+ * Genera los cargos mensuales del período (AAAA-MM), los de servicios anuales y los de dominios
+ * que vencen dentro de los próximos días de anticipo de cada uno. Idempotente.
+ * Devuelve ['mensuales' => n creados, 'anuales' => n creados, 'dominios' => n creados].
  */
 function generar_cargos(?string $periodo = null): array
 {
     $periodo = $periodo ?: date('Y-m');
     $primerDia = $periodo . '-01';
     $ultimoDia = date('Y-m-t', strtotime($primerDia));
-    $res = ['mensuales' => 0, 'anuales' => 0];
+    $res = ['mensuales' => 0, 'anuales' => 0, 'dominios' => 0];
 
     // Servicios mensuales activos que ya empezaron
     $mensuales = filas(
@@ -143,11 +143,28 @@ function generar_cargos(?string $periodo = null): array
         ]);
         $res['anuales'] += $creado ? 1 : 0;
     }
+
+    // Dominios activos con precio al cliente cuyo vencimiento está dentro de SUS días de anticipo (o ya venció).
+    // Igual que un servicio anual, pero cobrar el cargo NO mueve la fecha: el dominio se renueva aparte, en el
+    // proveedor, con el botón "Renovar" (ver generar_cargo_dominio() y dominio_renovar.php).
+    $dominios = filas(
+        "SELECT d.* FROM dominios d JOIN clientes c ON c.id = d.cliente_id
+         WHERE d.usuario_id = {U} AND c.usuario_id = {U}
+           AND d.estado = 'activo' AND d.precio_cliente > 0
+           AND d.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL d.dias_anticipo DAY) AND c.estado = 'activo'"
+    );
+    foreach ($dominios as $dom) {
+        $res['dominios'] += generar_cargo_dominio($dom) ? 1 : 0;
+    }
     return $res;
 }
 
-/** Genera el cargo de renovación de un dominio al cliente (idempotente). */
-function generar_cargo_dominio(array $dominio, string $nuevoVencimiento): bool
+/**
+ * Genera (si no existe) el cargo de renovación de un dominio para el período que vence en su fecha_vencimiento
+ * ACTUAL. Idempotente por clave_unica: tanto si lo crea el anticipo automático (generar_cargos()) como si lo
+ * pide a mano el botón "Renovar", el mismo período nunca genera dos cargos. No cambia la fecha del dominio.
+ */
+function generar_cargo_dominio(array $dominio): bool
 {
     if ((float) $dominio['precio_cliente'] <= 0) {
         return false;
@@ -155,11 +172,11 @@ function generar_cargo_dominio(array $dominio, string $nuevoVencimiento): bool
     return crear_cargo([
         'cliente_id'        => $dominio['cliente_id'],
         'dominio_id'        => $dominio['id'],
-        'concepto'          => 'Renovación dominio ' . $dominio['dominio'] . ' (hasta ' . fmt_fecha($nuevoVencimiento) . ')',
-        'fecha_vencimiento' => date('Y-m-d'),
+        'concepto'          => 'Dominio ' . $dominio['dominio'] . ' (vence ' . fmt_fecha($dominio['fecha_vencimiento']) . ')',
+        'fecha_vencimiento' => $dominio['fecha_vencimiento'],
         'monto'             => $dominio['precio_cliente'],
         'moneda'            => $dominio['moneda_precio'],
-        'clave_unica'       => 'D' . $dominio['id'] . ':' . $nuevoVencimiento,
+        'clave_unica'       => 'D' . $dominio['id'] . ':' . $dominio['fecha_vencimiento'],
     ]);
 }
 

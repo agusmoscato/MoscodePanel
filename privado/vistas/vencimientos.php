@@ -7,12 +7,12 @@ $horizonte = date('Y-m-d', strtotime('+180 days'));
 $items = [];
 if ($tipo === '' || $tipo === 'dominio') {
     foreach (filas(
-        "SELECT d.id, d.dominio AS nombre, d.fecha_vencimiento AS fecha, d.precio_cliente AS monto, d.moneda_precio AS moneda,
-                c.id AS cid, c.nombre AS cliente
+        "SELECT d.*, d.fecha_vencimiento AS fecha, d.precio_cliente AS monto, d.moneda_precio AS moneda,
+                c.id AS cid, c.nombre AS cliente, c.contacto, c.telefono
          FROM dominios d JOIN clientes c ON c.id = d.cliente_id
          WHERE d.usuario_id = {U} AND c.usuario_id = {U} AND d.estado = 'activo' AND d.fecha_vencimiento <= ?", [$horizonte]
     ) as $f) {
-        $items[] = $f + ['tipo' => 'Dominio'];
+        $items[] = $f + ['tipo' => 'Dominio', 'nombre' => $f['dominio']];
     }
 }
 if ($tipo === '' || $tipo === 'servicio') {
@@ -67,14 +67,17 @@ $urlTipo = fn(string $t) => url('vencimientos', $t !== '' ? ['tipo' => $t] : [])
     <div class="grupo-tit<?= $nombre === 'Vencidos' ? ' bad' : '' ?>"><?= icono($iconoGrupo[$nombre], 'chico') ?><?= e($nombre) ?> <span class="suave">(<?= count($lista) ?>)</span></div>
     <ul class="timeline">
         <?php foreach ($lista as $it): $tipoU = tipo_urgencia($it['dias']);
-            $ofrecerAviso = $it['tipo'] === 'Servicio anual' && $it['dias'] <= 60 && ($it['telefono'] ?? '') !== ''; ?>
+            $esAvisable = $it['tipo'] === 'Servicio anual' || $it['tipo'] === 'Dominio';
+            $umbralAviso = $it['tipo'] === 'Dominio' ? 7 : 60;
+            $ofrecerAviso = $esAvisable && $it['dias'] <= $umbralAviso && ($it['telefono'] ?? '') !== '';
+            $claveAviso = ($it['tipo'] === 'Dominio' ? 'dominio' : 'servicio') . ':' . (int) $it['id']; ?>
             <li class="tl-item <?= e($tipoU) ?>">
                 <div class="card">
                     <div class="item-main">
                         <div class="item-tit mono"><a href="<?= e(url('cliente', ['id' => $it['cid']])) ?>"><?= e($it['nombre']) ?></a></div>
                         <div class="item-sub"><?= chip($it['tipo'], 'mute') ?><span class="trunc"><?= e($it['cliente']) ?></span></div>
-                        <?php if ($it['tipo'] === 'Servicio anual'): ?>
-                            <div class="suave" data-aviso-estado="<?= (int) $it['id'] ?>"><?= !empty($it['aviso_renovacion_enviado_en']) ? 'aviso enviado el ' . e(date('d/m', strtotime($it['aviso_renovacion_enviado_en']))) : '' ?></div>
+                        <?php if ($esAvisable): ?>
+                            <div class="suave" data-aviso-estado="<?= e($claveAviso) ?>"><?= !empty($it['aviso_renovacion_enviado_en']) ? 'aviso enviado el ' . e(date('d/m', strtotime($it['aviso_renovacion_enviado_en']))) : '' ?></div>
                         <?php endif; ?>
                     </div>
                     <div class="item-der">
@@ -82,8 +85,10 @@ $urlTipo = fn(string $t) => url('vencimientos', $t !== '' ? ['tipo' => $t] : [])
                         <span class="suave mono"><?= e(fecha_corta($it['fecha'])) ?></span>
                         <?php if ((float) $it['monto'] > 0): ?><?= monto_html($it['monto'], $it['moneda']) ?><?php endif; ?>
                         <?php if ($ofrecerAviso):
-                            $linkRenovacion = link_whatsapp_renovacion(['telefono' => $it['telefono'], 'contacto' => $it['contacto'], 'nombre' => $it['cliente']], $it); ?>
-                        <a class="btn sec chico" href="<?= e($linkRenovacion) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="<?= (int) $it['id'] ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
+                            $clienteAviso = ['telefono' => $it['telefono'], 'contacto' => $it['contacto'], 'nombre' => $it['cliente']];
+                            $itemAviso = $it['tipo'] === 'Dominio' ? item_renovacion_dominio($it) : $it;
+                            $linkRenovacion = link_whatsapp_renovacion($clienteAviso, $itemAviso); ?>
+                        <a class="btn sec chico" href="<?= e($linkRenovacion) ?>" target="_blank" rel="noopener noreferrer" data-aviso-renovacion="<?= e($claveAviso) ?>"><?= icono('message-circle', 'chico') ?>Avisar renovación</a>
                         <?php endif; ?>
                     </div>
                 </div>

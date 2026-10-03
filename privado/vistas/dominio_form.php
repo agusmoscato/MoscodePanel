@@ -7,7 +7,7 @@ $cliente = fila('SELECT id, nombre FROM clientes WHERE id = ? AND usuario_id = {
 if (!$cliente) {
     redirigir(url('clientes'));
 }
-$d = $d ?? ['dominio' => '', 'proveedor' => '', 'fecha_vencimiento' => '', 'costo_renovacion' => '0', 'moneda_costo' => 'ARS', 'precio_cliente' => '0', 'moneda_precio' => 'ARS', 'estado' => 'activo'];
+$d = $d ?? ['dominio' => '', 'proveedor' => '', 'fecha_vencimiento' => '', 'dias_anticipo' => ANTICIPO_POR_DEFECTO_DIAS, 'costo_renovacion' => '0', 'moneda_costo' => 'ARS', 'precio_cliente' => '0', 'moneda_precio' => 'ARS', 'estado' => 'activo'];
 $titulo = $id ? 'Editar dominio' : 'Nuevo dominio';
 $volver = url('cliente', ['id' => $clienteId]);
 $monedas = ['ARS' => '$ Pesos', 'USD' => 'US$ Dólares'];
@@ -36,6 +36,10 @@ $monedas = ['ARS' => '$ Pesos', 'USD' => 'US$ Dólares'];
                 <input type="date" name="fecha_vencimiento" required value="<?= e(viejo('fecha_vencimiento', $d['fecha_vencimiento'])) ?>">
             </label>
         </div>
+        <label>Días de anticipo del cargo
+            <input type="number" name="dias_anticipo" inputmode="numeric" min="0" max="365" step="1" value="<?= e(viejo('dias_anticipo', (string) $d['dias_anticipo'])) ?>">
+            <span class="ayuda">El cargo al cliente se genera esta cantidad de días antes del vencimiento (0 a 365). Renovar el dominio no cambia esta fecha: eso se hace aparte, con el botón "Renovar".</span>
+        </label>
     </section>
 
     <section class="card">
