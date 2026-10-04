@@ -69,8 +69,12 @@ $rapidas = [
     ['Nueva publicación', 'megaphone', url('publicacion_form'), ' data-abrir="publicacion"'],
 ];
 $flash = flash_obtener();
+// Botón "ojito" (ocultar montos): en la topbar (celular) y en la barra de arriba del contenido (escritorio).
+// El estado lo aplica tema.js antes de pintar (clase montos-ocultos en <html>); app.js lo alterna.
+$ojito = fn(string $clase) => '<button type="button" class="btn fantasma icono ojito ' . $clase . '" data-montos-toggle aria-pressed="false" aria-label="Ocultar montos" title="Ocultar montos">'
+    . icono('eye', 'ojo-abierto') . icono('eye-off', 'ojo-cerrado') . '</button>';
 ?><!doctype html>
-<html lang="es-AR" data-theme="dark" data-tema-usuario="<?= e(cfg('tema')) ?>">
+<html lang="es-AR" data-theme="dark" data-tema-usuario="<?= e(cfg('tema')) ?>" data-montos-al-abrir="<?= cfg('montos_ocultos_al_abrir', '0') === '1' ? '1' : '0' ?>">
 <head>
 <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
 <?= ui_head($titulo . ' — Moscode') ?>
@@ -113,7 +117,7 @@ $flash = flash_obtener();
             <?= icono($cotFalla ? 'triangle-alert' : 'circle-dollar-sign') ?>
             <span class="cotiz-dato">
                 <span class="cotiz-etq">Dólar <?= e(mb_strtolower($nombreDolar)) ?></span>
-                <span class="cotiz-val"><?= $cot ? e(fmt_monto($cot['valor_venta'])) : 'sin dato' ?></span>
+                <span class="cotiz-val"><?= $cot ? monto_html($cot['valor_venta']) : 'sin dato' ?></span>
                 <span class="cotiz-hora"><?= $cot ? e(hace_cuanto($cot['creado_en'])) . ($cotFalla ? ' · falló la última' : '') : 'Cargala en Dólar' ?></span>
             </span>
         </a>
@@ -133,12 +137,14 @@ $flash = flash_obtener();
     <header class="topbar">
         <a class="logo" href="<?= e(url('dashboard')) ?>" aria-label="Moscode, ir al inicio"><img class="logo-img" src="<?= e(asset('assets/img/moscode.svg')) ?>" alt="" width="30" height="30"></a>
         <div class="topbar-titulo"><?= e($titulo) ?></div>
+        <?= $ojito('ojito-topbar') ?>
         <a class="cotiz<?= $cotFalla ? ' alerta-cot' : '' ?>" href="<?= e(url('cotizacion')) ?>" aria-label="Dólar <?= e($nombreDolar) ?>">
             <?= icono($cotFalla ? 'triangle-alert' : 'circle-dollar-sign', 'chico') ?>
-            <span class="cotiz-val"><?= $cot ? e(number_format((float) $cot['valor_venta'], 0, ',', '.')) : '—' ?></span>
+            <span class="cotiz-val"><?= $cot ? monto_html($cot['valor_venta'], 'ARS', 'sin-simbolo', 0) : '—' ?></span>
         </a>
     </header>
 
+    <div class="barra-escritorio"><?= $ojito('ojito-escritorio') ?></div>
     <main class="contenido" id="contenido">
         <?= $contenido ?>
     </main>

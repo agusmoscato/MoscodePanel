@@ -37,6 +37,17 @@ $yo = fila('SELECT usuario, nombre, email, rol, ultimo_login_en, creado_en FROM 
     </section>
 </div>
 
+<section class="mt-16 card" id="privacidad">
+    <h2 class="card-tit">Privacidad en pantalla</h2>
+    <p class="suave">El botón del ojo (<?= icono('eye', 'chico') ?>, arriba a la derecha) oculta todos los montos para usar la app delante de otros: se ven como "$ •••••". Lo que elegís con el botón queda guardado en cada dispositivo.</p>
+    <form method="post" action="<?= e(url_accion('privacidad_guardar')) ?>">
+        <?= csrf_campo() ?>
+        <label class="check"><input type="checkbox" name="montos_ocultos_al_abrir" value="1"<?= cfg('montos_ocultos_al_abrir', '0') === '1' ? ' checked' : '' ?>>Ocultar montos al abrir la app</label>
+        <p class="ayuda">Cada vez que abrís la app (o una pestaña nueva) arranca con los montos ocultos, aunque la última vez los hayas dejado visibles. Vale para todos tus dispositivos, desde la próxima vez que la abras.</p>
+        <button class="btn sec" type="submit"><?= icono('check') ?>Guardar</button>
+    </form>
+</section>
+
 <?php $dispositivos = recordar_dispositivos(); ?>
 <section class="mt-16 card" id="dispositivos">
     <h2 class="card-tit">Dispositivos con sesión iniciada</h2>
@@ -96,7 +107,7 @@ $yo = fila('SELECT usuario, nombre, email, rol, ultimo_login_en, creado_en FROM 
                             <span class="mono">IP <?= e($a['ip']) ?></span>
                             <?php if ($a['dispositivo'] !== ''): ?><span><?= e($a['dispositivo']) ?></span><?php endif; ?>
                         </div>
-                        <?php if ($a['detalle'] !== ''): ?><div class="suave"><?= e($a['detalle']) ?></div><?php endif; ?>
+                        <?php if ($a['detalle'] !== ''): ?><div class="suave"><?= montos_en_texto_html($a['detalle']) ?></div><?php endif; ?>
                     </div>
                 </li>
             <?php endforeach; ?>

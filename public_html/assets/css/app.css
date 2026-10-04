@@ -851,3 +851,26 @@ textarea.pub-copy-campo { min-height: 180px; }
 /* Copiar sin la API del portapapeles (HTTP o navegador viejo): textarea fuera de pantalla */
 .copiar-oculto { position: fixed; top: 0; left: -9999px; opacity: 0; }
 @media print { .cal-agregar, .cal-nav, .cal-panel { display: none !important; } .pub-copy { max-height: none; overflow: visible; } }
+
+/* "Ojito": ocultar montos ------------------------------------------------------
+   tema.js pone la clase montos-ocultos en <html> antes del primer pintado. Cada monto sale de monto_html()
+   (<span class="monto"><span class="mon">$</span> <span class="val">1.234,50</span></span>): se esconde el .val y
+   se muestra "•••••" → "$ •••••". Solo en pantalla: al imprimir (y en el PDF) los montos salen siempre.
+   Los campos de formulario no son .monto, así que lo que se está cargando sigue a la vista. */
+@media screen {
+    .montos-ocultos .monto > .val { display: none; }
+    .montos-ocultos .monto::after { content: "•••••"; letter-spacing: .06em; }
+}
+.monto.sin-simbolo > .mon { display: none; }
+.ojito .ojo-cerrado, .montos-ocultos .ojito .ojo-abierto { display: none; }
+.montos-ocultos .ojito .ojo-cerrado { display: inline; }
+.montos-ocultos .ojito { color: var(--accent-fg); }
+.barra-escritorio { display: none; }
+@media (min-width: 1024px) {
+    /* Escritorio: barra fina arriba del contenido, siempre visible (la topbar con el ojito es solo del celular) */
+    .barra-escritorio { position: sticky; top: 0; z-index: 40; display: flex; justify-content: flex-end; width: 100%; max-width: 1180px; margin: 0 auto;
+        padding: var(--s3) var(--s8) 0; pointer-events: none; }
+    .barra-escritorio .ojito { pointer-events: auto; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+    .contenido { padding-top: var(--s2); }
+}

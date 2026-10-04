@@ -112,7 +112,7 @@ $cot = cotizacion_valor();
                 </li>
             <?php endforeach; ?>
         </ul>
-        <p class="ayuda" data-suma-estado aria-live="polite">Suma: <?= e(fmt_monto($total, $moneda)) ?></p>
+        <p class="ayuda" data-suma-estado aria-live="polite">Suma: <?= monto_html($total, $moneda) ?></p>
     </section>
 
     <section class="card">
@@ -130,7 +130,7 @@ $cot = cotizacion_valor();
                 </select>
             </label>
         </div>
-        <p class="ayuda">Se registran como pagos de esas cuotas, con la fecha y el medio indicados.<?= $moneda === 'USD' ? ($cot ? ' Cotización del dólar vigente: ' . e(fmt_monto($cot)) . '.' : ' Falta cargar la cotización del dólar para registrar pagos en USD.') : '' ?></p>
+        <p class="ayuda">Se registran como pagos de esas cuotas, con la fecha y el medio indicados.<?= $moneda === 'USD' ? ($cot ? ' Cotización del dólar vigente: ' . monto_html($cot) . '.' : ' Falta cargar la cotización del dólar para registrar pagos en USD.') : '' ?></p>
     </section>
 
     <div class="form-fijo">

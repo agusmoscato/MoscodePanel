@@ -102,7 +102,7 @@ $sube = $p['porcentaje'] > 0;
                             <?= icono('arrow-right', 'chico') ?>
                             <strong><?= monto_html($f['nuevo'], $f['moneda']) ?></strong>
                         </div>
-                        <?= chip(($dif >= 0 ? '+' : '−') . fmt_monto(abs($dif), $f['moneda']), $dif > 0.004 ? 'warn' : ($dif < -0.004 ? 'info' : 'mute')) ?>
+                        <?= chip_html(($dif >= 0 ? '+' : '−') . monto_html(abs($dif), $f['moneda']), $dif > 0.004 ? 'warn' : ($dif < -0.004 ? 'info' : 'mute')) ?>
                     </div>
                 </li>
             <?php endforeach; ?>

@@ -54,7 +54,7 @@ $mesesLargos = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Juli
 <div class="card">
     <div class="stat-etq"><?= icono('credit-card', 'chico') ?>Saldo a cobrar en cuotas</div>
     <div class="stat-val"><?= montos_html($saldoCuotas['por_moneda']) ?></div>
-    <div class="stat-pie"><?= (int) $saldoCuotas['cuotas'] ?> cuota<?= $saldoCuotas['cuotas'] > 1 ? 's' : '' ?> de <?= (int) $saldoCuotas['planes'] ?> plan<?= $saldoCuotas['planes'] > 1 ? 'es' : '' ?> activo<?= $saldoCuotas['planes'] > 1 ? 's' : '' ?><?= $saldoCuotas['total_ars'] !== null && $saldoCuotas['por_moneda']['USD'] > 0.004 ? ' · ≈ ' . fmt_monto($saldoCuotas['total_ars']) . ' al dólar vigente' : '' ?> · no es deuda hasta cada vencimiento</div>
+    <div class="stat-pie"><?= (int) $saldoCuotas['cuotas'] ?> cuota<?= $saldoCuotas['cuotas'] > 1 ? 's' : '' ?> de <?= (int) $saldoCuotas['planes'] ?> plan<?= $saldoCuotas['planes'] > 1 ? 'es' : '' ?> activo<?= $saldoCuotas['planes'] > 1 ? 's' : '' ?><?= $saldoCuotas['total_ars'] !== null && $saldoCuotas['por_moneda']['USD'] > 0.004 ? ' · ≈ ' . monto_html($saldoCuotas['total_ars']) . ' al dólar vigente' : '' ?> · no es deuda hasta cada vencimiento</div>
 </div>
 <?php endif; ?>
 
@@ -111,12 +111,12 @@ $mesesLargos = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Juli
                             <div class="item-sub">Facturado <?= monto_html($r['facturado']) ?></div></div>
                         <div class="item-der">
                             <span class="ok-txt"><?= monto_html($r['cobrado']) ?></span>
-                            <?= $r['pendiente'] > 0.004 ? chip('pendiente ' . fmt_monto($r['pendiente']), 'warn') : '' ?>
+                            <?= $r['pendiente'] > 0.004 ? chip_html('pendiente ' . monto_html($r['pendiente']), 'warn') : '' ?>
                         </div>
                     </li>
                 <?php endforeach; ?>
             </ul>
-            <p class="u-margin-8px-0-0 suave">Los cargos en dólares se pasan a pesos con la cotización del día en que se generó cada cargo (si alguno no la tiene guardada, con la de hoy<?= $cot ? ': ' . e(fmt_monto($cot)) : '' ?>).</p>
+            <p class="u-margin-8px-0-0 suave">Los cargos en dólares se pasan a pesos con la cotización del día en que se generó cada cargo (si alguno no la tiene guardada, con la de hoy<?= $cot ? ': ' . monto_html($cot) : '' ?>).</p>
         </div>
     </details>
 </section>

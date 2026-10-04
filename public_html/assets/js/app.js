@@ -165,6 +165,56 @@
             .catch(function () {});
     });
 
+    /* ---------- "Ojito": ocultar montos ----------
+       El estado lo aplica tema.js antes de pintar (clase montos-ocultos en <html>) y lo guarda en el dispositivo;
+       acá solo se alterna con el botón y se mantienen al día aria-pressed y el texto del botón. */
+    function actualizarOjitos() {
+        var oc = !!(window.moscodeMontos && window.moscodeMontos.ocultos());
+        $$('[data-montos-toggle]').forEach(function (b) {
+            b.setAttribute('aria-pressed', oc ? 'true' : 'false');
+            b.setAttribute('aria-label', oc ? 'Mostrar montos' : 'Ocultar montos');
+            b.title = oc ? 'Mostrar montos' : 'Ocultar montos';
+        });
+    }
+    document.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('[data-montos-toggle]') && window.moscodeMontos) {
+            window.moscodeMontos.alternar();
+        }
+    });
+    document.addEventListener('montos-cambio', actualizarOjitos);
+    actualizarOjitos();
+
+    /* Texto con montos ("Pago registrado: $ 1.234,50") puesto en un elemento: cada monto va en un .monto, igual que
+       los que pinta monto_html() en el servidor, así el ojito también los oculta. Lo demás va como texto (nunca HTML).
+       Mismo patrón que PATRON_MONTO_TEXTO en privado/includes/ui.php. */
+    var PATRON_MONTO = /(US\$|\$)\s?(-?\d(?:[\d.]*\d)?(?:,\d{1,2})?)|(\d{1,3}(?:\.\d{3})*,\d{2})(?![\d,]|\s?%)/g;
+    function textoConMontos(el, texto) {
+        el.textContent = '';
+        var desde = 0, m;
+        PATRON_MONTO.lastIndex = 0;
+        while ((m = PATRON_MONTO.exec(texto)) !== null) {
+            var previo = m.index > 0 ? texto.charAt(m.index - 1) : '';
+            if (m[3] && /[\d.,]/.test(previo)) { continue; }        // parte de un número más largo: no es un monto suelto
+            el.appendChild(document.createTextNode(texto.slice(desde, m.index)));
+            var s = document.createElement('span');
+            s.className = 'monto' + (m[1] ? '' : ' monto-solo');
+            if (m[1]) {
+                var mon = document.createElement('span');
+                mon.className = 'mon';
+                mon.textContent = m[1];
+                s.appendChild(mon);
+                s.appendChild(document.createTextNode(' '));
+            }
+            var val = document.createElement('span');
+            val.className = 'val';
+            val.textContent = m[1] ? m[2] : m[3];
+            s.appendChild(val);
+            el.appendChild(s);
+            desde = m.index + m[0].length;
+        }
+        el.appendChild(document.createTextNode(texto.slice(desde)));
+    }
+
     /* ---------- Toasts (los mensajes flash del servidor llegan en #flash-data) ---------- */
     var iconoToast = { ok: 'circle-check', error: 'circle-alert', aviso: 'triangle-alert' };
     function toast(tipo, mensaje) {
@@ -177,7 +227,7 @@
         el.innerHTML = '<svg class="ico" aria-hidden="true"><use href="' + SPRITE + '#' + iconoToast[tipo] + '"></use></svg>'
             + '<div class="toast-txt"></div>'
             + '<button type="button" class="toast-x" aria-label="Cerrar"><svg class="ico chico" aria-hidden="true"><use href="' + SPRITE + '#x"></use></svg></button>';
-        el.querySelector('.toast-txt').textContent = mensaje;     // textContent: nunca interpreta HTML
+        textoConMontos(el.querySelector('.toast-txt'), mensaje);     // como texto (nunca HTML), con los montos ocultables
         cont.appendChild(el);
         var quitar = function () {
             if (!el.parentNode) { return; }
@@ -354,7 +404,7 @@
         }
         var marcado = radios.filter(function (r) { return r.checked; })[0];
         var moneda = marcado ? marcado.value : 'ARS';
-        if (debe) { debe.textContent = opt && opt.value ? opt.getAttribute('data-debe') : ''; }
+        if (debe) { textoConMontos(debe, opt && opt.value ? opt.getAttribute('data-debe') : ''); }
         if (!monto.hasAttribute('data-tocado')) {
             var sugerido = moneda === 'USD' ? usd : ars;
             monto.value = sugerido > 0.004 ? dineroInput(sugerido) : '';
@@ -600,14 +650,31 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false, animation: false,
-                    scales: { x: { stacked: !!cfg.apilado, grid: { display: false } }, y: { stacked: !!cfg.apilado, beginAtZero: true } },
-                    plugins: { legend: { display: cfg.series.length > 1 } }
+                    scales: {
+                        x: { stacked: !!cfg.apilado, grid: { display: false } },
+                        // Con el ojito activo, el eje de los montos no muestra valores (las barras se siguen viendo)
+                        y: { stacked: !!cfg.apilado, beginAtZero: true, ticks: { callback: function (v) {
+                            return graficosOcultos() ? '•••' : window.Chart.Ticks.formatters.numeric.apply(this, arguments);
+                        } } }
+                    },
+                    plugins: {
+                        legend: { display: cfg.series.length > 1 },
+                        tooltip: { callbacks: { label: function (ctx) {
+                            return (ctx.dataset.label ? ctx.dataset.label + ': ' : '') + (graficosOcultos() ? '•••••' : ctx.formattedValue);
+                        } } }
+                    }
                 }
             }));
         });
     }
+    // Al imprimir los montos se ven siempre (también en los gráficos): se redibujan sin ocultar y se vuelven a ocultar después
+    var imprimiendo = false;
+    function graficosOcultos() { return !imprimiendo && !!(window.moscodeMontos && window.moscodeMontos.ocultos()); }
     window.addEventListener('load', dibujarGraficos);
     document.addEventListener('tema-cambio', dibujarGraficos);
+    document.addEventListener('montos-cambio', dibujarGraficos);
+    window.addEventListener('beforeprint', function () { if (graficos.length) { imprimiendo = true; dibujarGraficos(); } });
+    window.addEventListener('afterprint', function () { if (imprimiendo) { imprimiendo = false; dibujarGraficos(); } });
 
     /* ---------- PWA: service worker mínimo (instalable + pantalla sin conexión) ---------- */
     if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {

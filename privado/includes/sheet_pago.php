@@ -26,7 +26,7 @@ usort($clientesPago, fn($a, $b) => [!$a['tiene_deuda'], mb_strtolower($a['nombre
                 <?php foreach ($clientesPago as $cp): ?>
                     <option value="<?= (int) $cp['id'] ?>" data-ars="<?= e((string) $cp['deuda']['ARS']) ?>" data-usd="<?= e((string) $cp['deuda']['USD']) ?>"
                             data-debe="<?= e($cp['tiene_deuda'] ? 'Debe ' . fmt_por_moneda($cp['deuda']) : 'Está al día') ?>">
-                        <?= e($cp['nombre']) ?><?= $cp['tiene_deuda'] ? ' — ' . e(fmt_por_moneda($cp['deuda'])) : '' ?>
+                        <?= e($cp['nombre']) ?><?= $cp['tiene_deuda'] ? ' — con deuda' : '' ?>
                     </option>
                 <?php endforeach; ?>
             </select>

@@ -281,7 +281,7 @@ $linkPortal = ($portalActivo && $c['portal_token']) ? url_portal(app_url(), $c['
                                     <div><?= chip('anulado', 'bad') ?></div>
                                 <?php else: ?>
                                     <?php if ($p['moneda'] === 'USD'): ?><div class="suave">dólar a <?= monto_html($p['cotizacion_usada']) ?></div><?php endif; ?>
-                                    <?php if ($libre > 0.009): ?><div><?= chip('sin imputar ' . fmt_monto($libre, $p['moneda']), 'warn') ?></div><?php endif; ?>
+                                    <?php if ($libre > 0.009): ?><div><?= chip_html('sin imputar ' . monto_html($libre, $p['moneda']), 'warn') ?></div><?php endif; ?>
                                 <?php endif; ?>
                             </td>
                             <td data-label="Nota"><?= e($p['nota'] ?: '—') ?><?php if ($anulado): ?><div class="suave">Anulado el <?= e(fmt_fecha_hora($p['anulado_en'])) ?>: <?= e((string) $p['anulado_motivo']) ?></div><?php endif; ?></td>

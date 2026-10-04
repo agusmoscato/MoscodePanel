@@ -36,7 +36,7 @@ $nombresTipo = ['resumen_mensual' => 'Resumen mensual', 'vencimientos' => 'Venci
                             <?= chip($l['canal'], 'mute', $l['canal'] === 'email' ? 'mail' : 'send') ?>
                             <?php if (in_array($l['referencia_tipo'], ['dominio', 'servicio', 'cuota'], true)): ?><?= chip('aviso ' . (int) $l['dias_aviso'] . ' d', 'mute') ?><?php endif; ?>
                         </div>
-                        <?php if (!$l['exito']): ?><div class="detalle-error"><?= e($l['detalle']) ?></div><?php endif; ?>
+                        <?php if (!$l['exito']): ?><div class="detalle-error"><?= montos_en_texto_html($l['detalle']) ?></div><?php endif; ?>
                     </div>
                     <?= $l['exito'] ? chip('enviado', 'ok') : chip('falló', 'bad') ?>
                 </li>
@@ -56,7 +56,7 @@ $nombresTipo = ['resumen_mensual' => 'Resumen mensual', 'vencimientos' => 'Venci
                 <li class="item">
                     <div class="item-main">
                         <div class="item-tit mono">Pago <?= e($w['payment_id'] ?: '—') ?></div>
-                        <div class="item-sub"><span class="mono"><?= e(fmt_fecha_hora($w['creado_en'])) ?></span><?= e($w['detalle']) ?></div>
+                        <div class="item-sub"><span class="mono"><?= e(fmt_fecha_hora($w['creado_en'])) ?></span><?= montos_en_texto_html($w['detalle']) ?></div>
                     </div>
                     <?= chip($w['resultado'], $tipoChip) ?>
                 </li>

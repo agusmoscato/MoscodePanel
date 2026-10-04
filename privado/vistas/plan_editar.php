@@ -21,7 +21,7 @@ $enviadas = $_SESSION['viejo']['cuotas'] ?? [];
 <div class="pagina-cab">
     <a class="btn fantasma chico" href="<?= e(url('plan', ['id' => $planId])) ?>"><?= icono('chevron-left', 'chico') ?><span class="trunc-btn"><?= e($plan['concepto']) ?></span></a>
 </div>
-<div class="form-titulo"><h1>Editar cuotas pendientes</h1><p class="suave">El total de las pendientes (<?= e(fmt_monto($totalPend, $moneda)) ?>) no cambia: si movés un monto, ajustá otra cuota.</p></div>
+<div class="form-titulo"><h1>Editar cuotas pendientes</h1><p class="suave">El total de las pendientes (<?= monto_html($totalPend, $moneda) ?>) no cambia: si movés un monto, ajustá otra cuota.</p></div>
 
 <form method="post" action="<?= e(url_accion('plan_editar_guardar')) ?>" data-validar novalidate>
     <?= csrf_campo() ?>

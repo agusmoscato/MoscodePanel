@@ -39,7 +39,7 @@ $cuentas = filas('SELECT id, usuario FROM usuarios ORDER BY usuario');
                             <span class="mono">IP <?= e($a['ip']) ?></span>
                             <?php if ($a['dispositivo'] !== ''): ?><span><?= e($a['dispositivo']) ?></span><?php endif; ?>
                         </div>
-                        <?php if ($a['detalle'] !== ''): ?><div class="suave"><?= e($a['detalle']) ?></div><?php endif; ?>
+                        <?php if ($a['detalle'] !== ''): ?><div class="suave"><?= montos_en_texto_html($a['detalle']) ?></div><?php endif; ?>
                     </div>
                 </li>
             <?php endforeach; ?>

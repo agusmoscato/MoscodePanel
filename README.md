@@ -773,9 +773,21 @@ Reemplaza la planilla de Google con un calendario por mes y el copy en un coment
 
 Como todo lo demás, cada usuario tiene sus publicaciones y su lista de tipos (`publicaciones` está en `TABLAS_USUARIO`, así que `q()` exige el filtro por usuario). Sin librerías de calendario: la grilla se arma en PHP (`privado/vistas/redes.php`, `privado/includes/redes.php`) y el comportamiento en `assets/js/app.js`, con la misma CSP de siempre.
 
+## Ocultar montos: el "ojito" (versión 2026.10.04-2)
+
+Para usar la app delante de otros sin que se vean los números, como en Mercado Pago. No hay que migrar nada: alcanza con subir los archivos.
+
+- **Botón del ojo**: en el celular, en la barra de arriba (al lado del dólar); en la computadora, arriba a la derecha del contenido (queda fijo al bajar). Ojo abierto = montos visibles; ojo tachado = ocultos.
+- **Qué oculta**: todos los montos de dinero en pantalla pasan a verse como **"$ •••••"** o **"US$ •••••"**: dashboard, fichas, listas, cobros, cuotas, reportes, ajuste de precios, servicios, dominios, la cotización del dólar (también la de la barra) y los mensajes que aparecen arriba (por ejemplo "Quedaron $ ••••• sin imputar"). En los gráficos de Reportes se ocultan los valores del eje y de los tooltips; las barras se siguen viendo.
+- **Qué NO oculta**: los campos de un formulario mientras cargás un monto (y sus cálculos en vivo, como cantidad × precio o la suma de las cuotas), la impresión / PDF (al imprimir siempre salen los números, también en los gráficos), el texto del mensaje de WhatsApp que se envía y el portal del cliente.
+- **Se recuerda en cada dispositivo** (localStorage) y se aplica antes de pintar la página, igual que el tema: los números no aparecen ni por un instante.
+- **Mi cuenta → Privacidad en pantalla → "Ocultar montos al abrir la app"**: cada vez que abrís la app (o una pestaña nueva) arranca oculto, aunque la última vez lo hayas dejado visible. Es por usuario (vale en todos tus dispositivos); dentro de la misma apertura podés mostrarlos con el ojo.
+
+**Cómo está hecho (para mantenerlo):** el ocultado es central. `monto_html()` (`privado/includes/ui.php`) es la única forma de pintar un monto: lo envuelve en `<span class="monto"><span class="mon">$</span> <span class="val">1.234,50</span></span>`, y `tema.js` pone la clase `montos-ocultos` en `<html>` (no en `<body>`: el `<body>` todavía no existe cuando corre, y la clase tiene que estar antes de pintar). El CSS, solo para pantalla, esconde el `.val` y muestra `•••••`. Para textos libres que traen montos (registro de actividad, detalle de avisos) está `montos_en_texto_html()`, y `app.js` hace lo mismo con los mensajes. Si alguna vez se pinta un monto de otra forma, `tests/casos/http_ocultar_montos.php` lo detecta: recorre todas las pantallas con datos de todo tipo y falla si encuentra un monto fuera de un `.monto`.
+
 ## Probar el proyecto (automático)
 
-Un solo comando corre todas las pruebas automáticas contra una base MariaDB real, de punta a punta: servicios por cantidad, dominios, los dos avisos de renovación, precios, esquema de las migraciones, y —por HTTP, con la app real servida por el servidor de PHP y un "navegador" con cookies— login y bloqueo por intentos, sesión recordada (rotación y cookie robada), 2FA, contraseña temporal, registrar y anular pagos, ventas en cuotas, webhook de Mercado Pago (simulado, sin salir a internet), cotización pendiente por variación mayor al 20%, cabeceras y CSP, aislamiento entre cuentas en todas las pantallas, exportaciones y acciones, y el módulo Redes (crear, editar, duplicar, cambiar estado, emojis en el copy y aislamiento, también por HTTP):
+Un solo comando corre todas las pruebas automáticas contra una base MariaDB real, de punta a punta: servicios por cantidad, dominios, los dos avisos de renovación, precios, esquema de las migraciones, y —por HTTP, con la app real servida por el servidor de PHP y un "navegador" con cookies— login y bloqueo por intentos, sesión recordada (rotación y cookie robada), 2FA, contraseña temporal, registrar y anular pagos, ventas en cuotas, webhook de Mercado Pago (simulado, sin salir a internet), cotización pendiente por variación mayor al 20%, cabeceras y CSP, aislamiento entre cuentas en todas las pantallas, exportaciones y acciones, el módulo Redes (crear, editar, duplicar, cambiar estado, emojis en el copy y aislamiento, también por HTTP) y el "ojito" (ningún monto fuera de monto_html() en ninguna pantalla):
 
 ```
 bash tests/entorno.sh

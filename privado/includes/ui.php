@@ -21,12 +21,49 @@ function icono(string $nombre, string $clase = ''): string
 /**
  * Monto en fuente mono con la moneda bien visible: "$ 1.234,50" / "US$ 1.234,00".
  * Devuelve HTML ya escapado.
+ *
+ * Es el ÚNICO lugar que pinta un monto en pantalla: el "ojito" (ocultar montos) funciona con la clase
+ * montos-ocultos en <html> y el CSS esconde el .val de cada .monto y muestra "•••••" en su lugar
+ * ("$ •••••" / "US$ •••••"). Un monto pintado de otra forma quedaría visible: para textos libres que
+ * traen montos (mensajes, registros) está montos_en_texto_html(); tests/casos/http_ocultar_montos.php
+ * recorre las pantallas y falla si encuentra un monto fuera de un .monto.
  */
-function monto_html($monto, string $moneda = 'ARS', string $clase = ''): string
+function monto_html($monto, string $moneda = 'ARS', string $clase = '', int $decimales = 2): string
 {
     $simbolo = MONEDAS[$moneda] ?? $moneda;
     return '<span class="monto mono ' . e($clase) . ($moneda === 'USD' ? ' usd' : '') . '"><span class="mon">' . e($simbolo)
-        . '</span> ' . e(number_format((float) $monto, 2, ',', '.')) . '</span>';
+        . '</span> <span class="val">' . e(number_format((float) $monto, $decimales, ',', '.')) . '</span></span>';
+}
+
+/** Monto escrito en un texto: "$ 1.234,50", "US$ 40,00" o un número con formato de plata sin símbolo ("1.234,50"). */
+const PATRON_MONTO_TEXTO = '/(US\$|\$)\s?(-?\d(?:[\d.]*\d)?(?:,\d{1,2})?)|(?<![\d.,])(\d{1,3}(?:\.\d{3})*,\d{2})(?![\d,]|\s?%)/u';
+
+/**
+ * Texto libre (un registro de actividad, el detalle de un aviso) escapado para HTML, con cada monto que contenga
+ * envuelto en un .monto (para que el ojito también lo oculte). Lo mismo hace app.js con los toasts.
+ */
+function montos_en_texto_html(string $texto): string
+{
+    // Los textos entre montos y los montos encontrados, en orden: texto0, monto0, texto1, monto1, ...
+    preg_match_all(PATRON_MONTO_TEXTO, $texto, $coinc, PREG_SET_ORDER);
+    $textos = preg_split(PATRON_MONTO_TEXTO, $texto) ?: [$texto];
+    $html = '';
+    foreach ($textos as $k => $t) {
+        $html .= e($t);
+        if (isset($coinc[$k])) {
+            $m = $coinc[$k];
+            $html .= ($m[1] ?? '') !== ''
+                ? '<span class="monto"><span class="mon">' . e($m[1]) . '</span> <span class="val">' . e($m[2]) . '</span></span>'
+                : '<span class="monto monto-solo"><span class="val">' . e($m[3]) . '</span></span>';
+        }
+    }
+    return $html;
+}
+
+/** Chip con contenido HTML ya escapado (por ejemplo un monto_html()). */
+function chip_html(string $html, string $tipo = ''): string
+{
+    return '<span class="chip' . ($tipo !== '' ? ' ' . e($tipo) : '') . '">' . $html . '</span>';
 }
 
 /** Montos por moneda ("$ x" y "US$ y"), omitiendo las monedas en cero. */

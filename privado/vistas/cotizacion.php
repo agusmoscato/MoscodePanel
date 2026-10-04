@@ -17,7 +17,7 @@ $tipoActual = DOLAR_TIPOS[cfg('dolar_tipo', 'blue')] ?? 'Dólar';
 
 <?php foreach ($pendientes as $pc): ?>
     <div class="banner warn" role="alert"><?= icono('triangle-alert') ?>
-        <div class="banner-txt"><strong>Cotización pendiente de confirmar: dólar <?= e(mb_strtolower(DOLAR_TIPOS[$pc['tipo']] ?? $pc['tipo'])) ?> a <?= e(fmt_monto($pc['valor_venta'])) ?></strong>
+        <div class="banner-txt"><strong>Cotización pendiente de confirmar: dólar <?= e(mb_strtolower(DOLAR_TIPOS[$pc['tipo']] ?? $pc['tipo'])) ?> a <?= monto_html($pc['valor_venta']) ?></strong>
             (<?= e(number_format((float) $pc['variacion_pct'], 1, ',', '.')) ?>% contra la anterior, supera el <?= (int) COTIZACION_SALTO_PCT ?>%). Mientras no se confirme, todos siguen usando la cotización anterior.
             <?php if (es_admin()): ?>
                 <div class="fila-flex mt-8">
