@@ -134,6 +134,19 @@ $plantillaRenovacionEditada = cfg('plantilla_renovacion') !== '';
         </div>
     </details>
 
+    <details class="acordeon" id="redes" data-abierto-escritorio>
+        <summary><span><?= icono('megaphone', 'chico') ?> Redes</span><?= icono('chevron-down') ?></summary>
+        <div class="acordeon-cuerpo">
+            <label>Tipos de publicación
+                <textarea name="redes_tipos" rows="5" required maxlength="1000"><?= e(viejo('redes_tipos', implode("\n", redes_tipos()))) ?></textarea>
+                <span class="ayuda">Uno por renglón (hasta <?= PUB_TIPOS_MAX ?>). Son las opciones de "Tipo" al cargar una publicación en el calendario. Quitar uno no cambia las publicaciones que ya lo usan.</span>
+            </label>
+            <label class="check"><input type="checkbox" name="redes_aviso" value="1"<?= redes_aviso_activo() ? ' checked' : '' ?>>Avisarme el mismo día lo que hay que publicar
+                <?= chip($emailOk || $tgOk ? 'por ' . implode(' y ', array_keys(array_filter(['email' => $emailOk, 'Telegram' => $tgOk]))) : 'falta configurar email o Telegram', $emailOk || $tgOk ? 'ok' : 'warn') ?></label>
+            <p class="ayuda">Un solo mensaje por día con las publicaciones de hoy que todavía no están en "Publicado". Sale con los avisos de vencimientos (el mismo Cron Job diario).</p>
+        </div>
+    </details>
+
     <details class="acordeon" data-abierto-escritorio>
         <summary><span><?= icono('wallet', 'chico') ?> Portal y Mercado Pago</span><?= icono('chevron-down') ?></summary>
         <div class="acordeon-cuerpo">
@@ -244,6 +257,9 @@ $plantillaRenovacionEditada = cfg('plantilla_renovacion') !== '';
             <form method="post" action="<?= e(url_accion('automatizacion_probar')) ?>" data-confirmar-titulo="Enviar resumen mensual"
                   data-confirmar="Genera los cargos del mes (si faltan) y envía el resumen ahora por los canales activos." data-confirmar-boton="Enviar"><?= csrf_campo() ?><input type="hidden" name="que" value="resumen"><button class="btn bloque" type="submit"><?= icono('send') ?>Enviar resumen ahora</button></form>
             <form method="post" action="<?= e(url_accion('automatizacion_probar')) ?>"><?= csrf_campo() ?><input type="hidden" name="que" value="avisos"><button class="btn bloque" type="submit"><?= icono('bell') ?>Enviar avisos ahora</button></form>
+            <?php if (redes_aviso_activo()): ?>
+                <form method="post" action="<?= e(url_accion('automatizacion_probar')) ?>"><?= csrf_campo() ?><input type="hidden" name="que" value="redes"><button class="btn bloque" type="submit"><?= icono('megaphone') ?>Enviar aviso de Redes de hoy</button></form>
+            <?php endif; ?>
         </div>
         <p class="mt-12 ayuda">El resumen forzado no marca el mes como enviado: el cron lo enviará igual el primer día hábil.</p>
     </div>

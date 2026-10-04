@@ -106,10 +106,11 @@ Una instalación nueva con `install.php` ya trae todo. Si ya instalaste antes, i
 | `privado/install/migracion_007.sql` | Seguridad: 2FA, registro de actividad, anulación de pagos, cotización pendiente de confirmar e índices. **Una sola vez.** |
 | `privado/install/migracion_008.sql` | Servicios por cantidad y fecha del último aviso de renovación en `servicios`. **Una sola vez.** |
 | `privado/install/migracion_009.sql` | Dominios: días de anticipo del cargo (`dominios.dias_anticipo`) y fecha del último aviso de renovación (`dominios.aviso_renovacion_enviado_en`). **Una sola vez.** |
+| `privado/install/migracion_010.sql` | Módulo **Redes** (tabla `publicaciones`) y **toda la base en utf8mb4**: cambia el juego de caracteres por defecto de la base y convierte cada tabla a `utf8mb4_unicode_ci` (necesario para los emojis del copy). En las tablas que ya estaban en utf8mb4 no cambia nada. **Una sola vez.** |
 
 `install.sql` ya incluye todas las migraciones, así que `install.php` siempre instala la versión completa.
 
-**Verificado:** una base instalada con el `install.sql` de una versión anterior y actualizada con las migraciones que le faltan queda con **exactamente el mismo esquema** que una instalación nueva (mismas columnas en el mismo orden, tipos, NULL, valores por defecto e índices). Se comprobó desde las dos versiones publicadas antes de esta (la que tenía hasta la 007, + 008 + 009; y la que tenía hasta la 008, + 009), y queda como prueba automática en `tests/casos/esquema_migraciones.php`: si alguien agrega una columna a `install.sql` y se olvida de la migración (o al revés), `bash tests/entorno.sh` falla.
+**Verificado:** una base instalada con el `install.sql` de una versión anterior y actualizada con las migraciones que le faltan queda con **exactamente el mismo esquema** que una instalación nueva (mismas columnas en el mismo orden, tipos, NULL, valores por defecto e índices). Se comprobó desde las tres versiones publicadas antes de esta (la que tenía hasta la 007, + 008 + 009 + 010; la que tenía hasta la 008, + 009 + 010; y la que tenía hasta la 009, + 010), también partiendo de una base en latin1 con una tabla en latin1 (la 010 deja todo en utf8mb4 y el esquema igual al de una instalación nueva), y queda como prueba automática en `tests/casos/esquema_migraciones.php`: si alguien agrega una columna a `install.sql` y se olvida de la migración (o al revés), `bash tests/entorno.sh` falla.
 
 ---
 
@@ -156,7 +157,7 @@ Reemplazá `USUARIO` y `TUDOMINIO.com` por la ruta real de tu hosting (la ves ar
 |---|---|---|
 | Cotización del dólar | `0 * * * 1-5` (cada hora, lun-vie) | `/usr/bin/php /home/USUARIO/domains/TUDOMINIO.com/privado/cron/actualizar_dolar.php` |
 | Resumen mensual | `0 8 * * *` (todos los días 8:00) | `/usr/bin/php /home/USUARIO/domains/TUDOMINIO.com/privado/cron/resumen_mensual.php` |
-| Avisos de vencimiento | `0 9 * * *` (todos los días 9:00) | `/usr/bin/php /home/USUARIO/domains/TUDOMINIO.com/privado/cron/avisos_vencimientos.php` |
+| Avisos de vencimiento (y el aviso de Redes del día) | `0 9 * * *` (todos los días 9:00) | `/usr/bin/php /home/USUARIO/domains/TUDOMINIO.com/privado/cron/avisos_vencimientos.php` |
 
 - El resumen corre **todos los días** a propósito: el script decide si hoy toca. Actúa solo si hoy es día hábil y el resumen del mes todavía no se envió. Si el primer día hábil falla (o el cron no corrió), **reintenta el siguiente día hábil** hasta que salga.
 - Si tu hosting no deja programar PHP por CLI, podés usar la versión por URL: poné en `app.cron_token` un token de **al menos 32 caracteres** y mandalo en la **cabecera** `X-Cron-Token` (ej. `curl -s -H "X-Cron-Token: TU_TOKEN" https://TUDOMINIO.com/cron/avisos_vencimientos`). También se acepta `?token=`, pero ese queda en los logs de acceso del servidor. Por URL no se puede forzar el resumen ni se ven nombres de usuario, y 10 intentos con un token incorrecto bloquean la IP 15 minutos.
@@ -509,6 +510,7 @@ Con MariaDB real y dos usuarios de prueba (más un admin): aislamiento total en 
 | `/clientes/12/dominios/nuevo` · `/dominios/8/editar` | Dominios |
 | `/clientes/12/cuotas/nueva` · `/cuotas` · `/cuotas/3` · `/cuotas/3/editar` | Ventas en cuotas |
 | `/cobros` · `/pagos/nuevo?cliente_id=12` · `/vencimientos` · `/reportes` · `/precios` · `/dolar` | Cobros y gestión |
+| `/redes` · `/redes?vista=lista` · `/redes/nueva?fecha=2026-10-08` · `/redes/7` · `/redes/7/editar` | Redes: calendario de publicaciones |
 | `/configuracion` · `/mi-cuenta` · `/feriados` · `/notificaciones` | Configuración y cuenta |
 | `/usuarios` · `/usuarios/nuevo` | Solo admin |
 | `/exportar/clientes.csv` (y `deudores`, `servicios`, `dominios`, `cargos`, `pagos`, `rep_*`) | CSV (con sesión) |
@@ -754,9 +756,26 @@ Antes, el cargo de renovación de un dominio solo se generaba en el momento de t
 
 Los dos números están en un solo lugar cada uno: `AVISO_RENOVACION_DIAS` (60, en `privado/includes/whatsapp.php`) y `DOMINIO_AVISO_INTERNO_DIAS` (7, en `privado/includes/resumen.php`).
 
+## Redes: calendario de publicaciones (versión 2026.10.04-1)
+
+Reemplaza la planilla de Google con un calendario por mes y el copy en un comentario de cada celda. Está en el menú como **Redes** (en el celular, dentro de **Más**) y como **Nueva publicación** en el botón **+**.
+
+**Para actualizar una instalación existente:** importá `privado/install/migracion_010.sql` una sola vez (después de la 009) y subí los archivos nuevos. La migración crea la tabla `publicaciones` y deja la base y **todas** las tablas en `utf8mb4`: las tablas del panel siempre se crearon así, pero la base podía haber quedado con el juego de caracteres del hosting. Después podés confirmarlo con `php privado/scripts/verificar_servidor.php` (revisa la conexión, la base y cada columna).
+
+- **Publicación:** fecha (obligatoria) y hora (opcional), tipo, estado, título (obligatorio), copy (texto largo con emojis y saltos de línea, hasta 5.000 caracteres), notas internas y un link opcional (el diseño en Drive, Canva…).
+- **Tipos:** Post, Reel, Historia y Carrusel por defecto; se cambian en **Configuración → Redes** (uno por renglón). Quitar un tipo de la lista no toca las publicaciones que ya lo usan, y se pueden seguir editando sin cambiárselo.
+- **Estados** (lista fija, con un color cada uno): Idea (gris), En preparación (ámbar), Listo (azul), Publicado (verde).
+- **Calendario** mensual de lunes a domingo, con flechas de mes y botón **Hoy**. En la computadora cada publicación se ve en su día con el tipo, el título y el color del estado; tocar un día (fuera de una publicación) abre el formulario para crear una en esa fecha, y tocar una publicación la abre. En el celular la grilla muestra solo un punto de color por publicación; al tocar un día se ve debajo la lista de ese día con el botón **Agregar**. El formulario se abre en un bottom sheet (en la computadora, centrado).
+- **Lista:** las publicaciones desde hoy, agrupadas por día, con filtros por tipo y estado. Si hay publicaciones de días pasados sin marcar como Publicado, aparece el filtro **Atrasadas**.
+- **Una publicación:** el estado se cambia con un toque (los cuatro botones), **Copiar copy** lo copia al portapapeles tal cual (si el navegador no permite la API del portapapeles, usa el método viejo), **Duplicar** la copia a otra fecha (si estaba Publicado, la copia queda en Listo), y además Editar y Eliminar.
+- **Dashboard:** la card **Redes esta semana** muestra las publicaciones de los próximos 7 días con su estado (solo si usás el módulo).
+- **Aviso del día (opcional):** en **Configuración → Redes**, "Avisarme el mismo día lo que hay que publicar" manda por tus canales (email/Telegram) las publicaciones de hoy que todavía no están en Publicado. Sale con el Cron Job diario de avisos de vencimiento (no hay que programar nada nuevo), una sola vez por día; si falla, reintenta en la próxima corrida. Se puede probar en Configuración → Probar automatizaciones.
+
+Como todo lo demás, cada usuario tiene sus publicaciones y su lista de tipos (`publicaciones` está en `TABLAS_USUARIO`, así que `q()` exige el filtro por usuario). Sin librerías de calendario: la grilla se arma en PHP (`privado/vistas/redes.php`, `privado/includes/redes.php`) y el comportamiento en `assets/js/app.js`, con la misma CSP de siempre.
+
 ## Probar el proyecto (automático)
 
-Un solo comando corre todas las pruebas automáticas contra una base MariaDB real, de punta a punta: servicios por cantidad, dominios, los dos avisos de renovación, precios, esquema de las migraciones, y —por HTTP, con la app real servida por el servidor de PHP y un "navegador" con cookies— login y bloqueo por intentos, sesión recordada (rotación y cookie robada), 2FA, contraseña temporal, registrar y anular pagos, ventas en cuotas, webhook de Mercado Pago (simulado, sin salir a internet), cotización pendiente por variación mayor al 20%, cabeceras y CSP, y aislamiento entre cuentas en todas las pantallas, exportaciones y acciones:
+Un solo comando corre todas las pruebas automáticas contra una base MariaDB real, de punta a punta: servicios por cantidad, dominios, los dos avisos de renovación, precios, esquema de las migraciones, y —por HTTP, con la app real servida por el servidor de PHP y un "navegador" con cookies— login y bloqueo por intentos, sesión recordada (rotación y cookie robada), 2FA, contraseña temporal, registrar y anular pagos, ventas en cuotas, webhook de Mercado Pago (simulado, sin salir a internet), cotización pendiente por variación mayor al 20%, cabeceras y CSP, aislamiento entre cuentas en todas las pantallas, exportaciones y acciones, y el módulo Redes (crear, editar, duplicar, cambiar estado, emojis en el copy y aislamiento, también por HTTP):
 
 ```
 bash tests/entorno.sh

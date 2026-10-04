@@ -109,7 +109,7 @@ arriba).
 - **Sintaxis de todo el proyecto**: `for f in $(find privado public_html tests -name '*.php'); do php -l "$f"; done`
 - **Aislamiento entre usuarios (estático, sin base)**: `php privado/scripts/auditar_aislamiento.php`
 - De la batería de seguridad que describe el README principal, ya corren acá login y bloqueo, recordarme,
-  2FA, contraseña temporal, pagos y anulaciones, cuotas, webhook de Mercado Pago (simulado), cotización
+  2FA, contraseña temporal, pagos y anulaciones, cuotas, webhook de Mercado Pago (simulado), Redes, cotización
   pendiente, cabeceras/CSP y aislamiento de pantallas, exportaciones y acciones. Siguen siendo manuales:
   SMTP/Telegram, backups y restauración, rotación de la clave maestra, instalador, portal del cliente, crons
   por URL y el comportamiento del `.htaccess` en el hosting.

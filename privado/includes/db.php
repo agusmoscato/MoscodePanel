@@ -21,7 +21,7 @@ declare(strict_types=1);
 const TABLAS_USUARIO = [
     'clientes', 'servicios', 'servicios_precios_hist', 'dominios', 'planes_pago', 'cargos', 'pagos',
     'pago_imputaciones', 'notificaciones_log', 'mp_webhook_log', 'usuario_config', 'sesiones_recordar',
-    'registro_actividad', 'totp_recuperacion',
+    'registro_actividad', 'totp_recuperacion', 'publicaciones',
 ];
 
 /** Ajustes globales (tabla configuracion); todo lo demás es configuración de cada usuario. */

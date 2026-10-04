@@ -773,3 +773,81 @@ body.portal { background: var(--bg); }
 .codigos-rec { columns: 2; column-gap: var(--s6); padding-left: var(--s6); margin: var(--s4) 0; font-size: 1.0625rem; line-height: 1.9; }
 .alinear-abajo { display: flex; align-items: flex-end; }
 @media print { .qr-caja, .no-imprimir { display: none; } }
+
+/* Redes: calendario de publicaciones ---------------------------------------
+   Un color por estado (los mismos tokens que los chips): Idea gris, En preparación ámbar, Listo azul, Publicado verde.
+   Celular: la grilla muestra solo puntos y el día elegido se lista debajo. Escritorio (≥768px): cada publicación en su día. */
+.pub-punto { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--mute); }
+.pub-punto.est-preparacion { background: var(--warn); }
+.pub-punto.est-listo { background: var(--info); }
+.pub-punto.est-publicado { background: var(--ok); }
+.chip-radio .pub-punto { margin-right: 6px; }
+.cal { padding: var(--s3); }
+.cal-cab { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s3); }
+.cal-tit { display: flex; flex-direction: column; min-width: 0; }
+.cal-tit .suave { font-size: .8125rem; }
+.cal-mes { font-size: 1.125rem; }
+.cal-nav { display: flex; gap: var(--s2); }
+.cal-sem, .cal-grilla { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-sem span { padding: var(--s1) 0; text-align: center; font-size: .6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-2); }
+.cal-grilla { list-style: none; margin: 0; padding: 0; gap: 2px; }
+.cal-dia { position: relative; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 2px; border-radius: var(--r-sm); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.cal-num { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--text); font-family: var(--mono); font-size: .875rem; font-weight: 500; text-decoration: none; }
+.cal-num:hover { text-decoration: none; }
+.cal-dia.fuera .cal-num { color: var(--text-2); opacity: .6; }
+.cal-dia.hoy .cal-num { color: var(--accent-fg); font-weight: 700; box-shadow: inset 0 0 0 2px var(--accent); }
+.cal-dia.sel .cal-num { background: var(--accent); color: var(--on-accent); box-shadow: none; opacity: 1; }
+.cal-pubs, .cal-agregar { display: none; }
+.cal-puntos { display: flex; align-items: center; gap: 3px; min-height: 8px; }
+.cal-puntos .pub-punto { width: 7px; height: 7px; }
+.cal-mas { font-size: .625rem; line-height: 1; color: var(--text-2); }
+.cal-leyenda { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s3); font-size: .75rem; color: var(--text-2); }
+.cal-leyenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.pub-item { cursor: pointer; }
+@media (min-width: 768px) {
+    .cal { padding: var(--s4); }
+    .cal-grilla { gap: 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+    .cal-dia { min-height: 112px; align-items: stretch; gap: 2px; padding: var(--s1); border-radius: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .cal-dia:hover { background: var(--elev); }
+    .cal-dia.fuera { background: color-mix(in srgb, var(--elev) 55%, transparent); }
+    .cal-num { width: 26px; height: 26px; font-size: .8125rem; }
+    .cal-dia.sel .cal-num { background: none; color: var(--text); }
+    .cal-dia.fuera.sel .cal-num { color: var(--text-2); opacity: .6; }
+    .cal-dia.hoy .cal-num { background: var(--accent); color: var(--on-accent); box-shadow: none; opacity: 1; }
+    .cal-puntos { display: none; }
+    .cal-pubs { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .cal-pub { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 6px; border-radius: 6px; background: var(--mute-bg); color: var(--text); font-size: .75rem; line-height: 1.4; text-decoration: none; }
+    .cal-pub.est-preparacion { background: var(--warn-bg); }
+    .cal-pub.est-listo { background: var(--info-bg); }
+    .cal-pub.est-publicado { background: var(--ok-bg); }
+    .cal-pub:hover { text-decoration: none; box-shadow: inset 0 0 0 1px var(--text-2); }
+    .cal-pub .pub-punto { width: 8px; height: 8px; }
+    .cal-pub-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cal-pub-tipo { font-weight: 600; }
+    .cal-agregar { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--text-2); opacity: 0; transition: opacity .15s; }
+    .cal-dia:hover .cal-agregar, .cal-agregar:focus-visible { opacity: 1; }
+    .cal-agregar:hover { background: var(--accent-soft); color: var(--accent-fg); }
+    .cal-panel { display: none; }
+    .sheet.sheet-ancha { width: min(640px, 92vw); }
+}
+@media (min-width: 768px) and (pointer: coarse) { .cal-agregar { opacity: 1; } }
+
+/* Una publicación */
+.pub-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin-bottom: var(--s2); font-size: .875rem; }
+.pub-titulo { font-size: 1.25rem; margin-bottom: var(--s4); overflow-wrap: anywhere; }
+.pub-estado { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 var(--s4); border-radius: var(--r-md); border: 1px solid var(--border); background: var(--field); color: var(--text-2); font: inherit; font-size: .9375rem; font-weight: 500; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.pub-estado:hover { border-color: var(--text-2); color: var(--text); }
+.pub-estado.actual { font-weight: 600; }
+.pub-estado.actual.est-idea { background: var(--mute-bg); border-color: var(--mute); color: var(--mute); }
+.pub-estado.actual.est-preparacion { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+.pub-estado.actual.est-listo { background: var(--info-bg); border-color: var(--info); color: var(--info); }
+.pub-estado.actual.est-publicado { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+.pub-estado[disabled] { opacity: .65; }
+.pub-copy { max-height: 60vh; overflow-y: auto; padding: var(--s3) var(--s4); background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-md); font-size: .9375rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pub-notas { white-space: pre-wrap; }
+textarea.pub-copy-campo { min-height: 180px; }
+.pub-duplicar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s3); }
+.pub-duplicar label { flex: 1 1 200px; }
+/* Copiar sin la API del portapapeles (HTTP o navegador viejo): textarea fuera de pantalla */
+.copiar-oculto { position: fixed; top: 0; left: -9999px; opacity: 0; }
+@media print { .cal-agregar, .cal-nav, .cal-panel { display: none !important; } .pub-copy { max-height: none; overflow: visible; } }

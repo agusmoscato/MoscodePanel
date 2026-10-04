@@ -16,6 +16,7 @@ $grupos = [
         ['clientes', 'Clientes', 'users'],
         ['cargos', 'Cobros', 'receipt'],
         ['vencimientos', 'Vencimientos', 'calendar-clock'],
+        ['redes', 'Redes', 'megaphone'],
     ],
     'Gestión' => [
         ['precios', 'Precios', 'tag'],
@@ -43,6 +44,7 @@ $seccion = match ($pagina) {
     'plan', 'plan_form', 'plan_editar' => 'planes',
     'usuario_form' => 'usuarios',
     'dos_pasos' => 'mi_cuenta',
+    'publicacion', 'publicacion_form' => 'redes',
     'pago_anular' => 'clientes',
     default => $pagina,
 };
@@ -64,6 +66,7 @@ $rapidas = [
     ['Nuevo cliente', 'user-plus', url('cliente_form'), ''],
     ['Nuevo servicio', 'layers', $destino('servicio', 'servicio_form'), ''],
     ['Nuevo dominio', 'globe', $destino('dominio', 'dominio_form'), ''],
+    ['Nueva publicación', 'megaphone', url('publicacion_form'), ' data-abrir="publicacion"'],
 ];
 $flash = flash_obtener();
 ?><!doctype html>
@@ -75,7 +78,7 @@ $flash = flash_obtener();
 <?php if ($pagina === 'reportes'): ?><script src="<?= e(asset('assets/vendor/chartjs/chart.umd.min.js')) ?>" defer></script><?php endif; ?>
 <script src="<?= e(asset('assets/js/app.js')) ?>" defer></script>
 </head>
-<body<?= in_array($pagina, ['cliente_form', 'servicio_form', 'dominio_form', 'pago_form', 'configuracion', 'precios', 'plan_form', 'plan_editar', 'usuario_form', 'mi_cuenta'], true) ? ' class="sin-fab"' : '' ?>>
+<body<?= in_array($pagina, ['cliente_form', 'servicio_form', 'dominio_form', 'pago_form', 'configuracion', 'precios', 'plan_form', 'plan_editar', 'usuario_form', 'mi_cuenta', 'publicacion_form'], true) ? ' class="sin-fab"' : '' ?>>
 
 <aside class="sidebar" id="sidebar" aria-label="Menú principal">
     <div class="sb-cab">
@@ -168,6 +171,7 @@ $flash = flash_obtener();
 </div>
 
 <?php require __DIR__ . '/sheet_pago.php'; ?>
+<?php require __DIR__ . '/sheet_publicacion.php'; ?>
 
 <div class="modal-fondo" id="modal-fondo">
     <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-titulo" aria-describedby="modal-texto">

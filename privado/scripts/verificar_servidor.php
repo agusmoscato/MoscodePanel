@@ -81,6 +81,15 @@ try {
     linea(str_contains($modo, 'STRICT_ALL_TABLES') ? 'OK' : 'PROBLEMA', 'La base trabaja en modo estricto (el panel lo fija en cada conexión)');
     $v = (string) db()->query('SELECT VERSION()')->fetchColumn();
     linea('OK', "Base de datos: $v");
+    // utf8mb4 en la conexión, en la base y en cada columna de texto (sin eso, los emojis del copy de Redes se rompen)
+    $conexion = (string) db()->query('SELECT @@character_set_connection')->fetchColumn();
+    linea($conexion === 'utf8mb4' ? 'OK' : 'PROBLEMA', "Conexión en $conexion", 'La conexión la fija privado/includes/db.php (charset=utf8mb4): revisá que no esté modificado.');
+    $deBase = (string) db()->query('SELECT DEFAULT_CHARACTER_SET_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()')->fetchColumn();
+    $columnas = db()->query("SELECT CONCAT(TABLE_NAME, '.', COLUMN_NAME) FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'")->fetchAll(PDO::FETCH_COLUMN);
+    linea($deBase === 'utf8mb4' && !$columnas ? 'OK' : 'PROBLEMA',
+        "Base en $deBase" . ($columnas ? ' — columnas que no son utf8mb4: ' . implode(', ', array_slice($columnas, 0, 8)) . (count($columnas) > 8 ? '…' : '') : ', todas las columnas en utf8mb4'),
+        'Importá privado/install/migracion_010.sql (deja la base y todas las tablas en utf8mb4).');
     $hay = (int) db()->query("SELECT COUNT(*) FROM usuarios WHERE rol = 'admin' AND activo = 1")->fetchColumn();
     linea($hay >= 1 ? 'OK' : 'PROBLEMA', "Administradores activos: $hay");
     $sin2fa = db()->query("SELECT usuario FROM usuarios WHERE rol = 'admin' AND activo = 1 AND totp_activo = 0")->fetchAll(PDO::FETCH_COLUMN);

@@ -89,6 +89,9 @@ if ($deudores) {
         $contactos[(int) $c['id']] = $c;
     }
 }
+
+// Redes: publicaciones de los próximos 7 días (hoy incluido). La card se muestra solo a quien usa el módulo.
+$redesSemana = usa_redes() ? publicaciones_entre(date('Y-m-d'), date('Y-m-d', strtotime('+6 days'))) : null;
 ?>
 <div class="pagina-cab">
     <div>
@@ -221,3 +224,20 @@ if ($deudores) {
         <?php endif; ?>
     </section>
 </div>
+
+<?php if ($redesSemana !== null): ?>
+<section class="card mt-16" aria-labelledby="redes-tit">
+    <div class="card-cab">
+        <h2 id="redes-tit">Redes esta semana</h2>
+        <a class="btn fantasma chico" href="<?= e(url('redes')) ?>">Calendario<?= icono('chevron-right', 'chico') ?></a>
+    </div>
+    <?php if (!$redesSemana): ?>
+        <div class="pad-8-0 vacio-est"><?= icono('megaphone') ?><p>Nada programado para los próximos 7 días.</p>
+            <a class="btn sec chico" href="<?= e(url('publicacion_form')) ?>" data-abrir="publicacion"><?= icono('plus', 'chico') ?>Nueva publicación</a></div>
+    <?php else: ?>
+        <ul class="lista">
+            <?php foreach ($redesSemana as $p): ?><?= pub_item_html($p, true) ?><?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
+</section>
+<?php endif; ?>

@@ -3,6 +3,7 @@
  * cron/avisos_vencimientos.php — Avisos de dominios, servicios anuales y cuotas por vencer.
  * Se programa una vez por día. Recorre los usuarios activos; cada uno recibe los avisos de SUS clientes por SUS
  * canales (email/Telegram) y con SUS días de anticipación. Cada escalón se envía una sola vez.
+ * También manda el aviso de Redes (lo que hay que publicar hoy) a quien lo activó en Configuración.
  * Solo ejecutable por CLI o con token.
  */
 defined('SIN_SESION') || define('SIN_SESION', true);
@@ -23,5 +24,16 @@ foreach (usuarios_activos() as $u) {
     } catch (Throwable $ex) {
         error_log("avisos_vencimientos [{$u['usuario']}]: " . $ex->getMessage());
         echo 'ERROR (ver el log del servidor)' . (cron_es_web() ? '' : ': ' . $ex->getMessage()) . "\n";
+    }
+    // Redes: lo que hay que publicar hoy (solo si el usuario activó ese aviso). Aparte: si fallan los vencimientos, sale igual
+    try {
+        $r = con_usuario((int) $u['id'], fn() => ejecutar_aviso_redes());
+        echo implode("\n", $r['lineas']) . "\n";
+        if ($ver && isset($r['texto'])) {
+            echo "--- Texto ---\n" . $r['texto'] . "\n";
+        }
+    } catch (Throwable $ex) {
+        error_log("avisos_vencimientos (redes) [{$u['usuario']}]: " . $ex->getMessage());
+        echo 'Redes: ERROR (ver el log del servidor)' . (cron_es_web() ? '' : ': ' . $ex->getMessage()) . "\n";
     }
 }

@@ -46,6 +46,10 @@ $plantillaRenovacion = str_replace("\r\n", "\n", (string) ($_POST['plantilla_ren
 if (trim($plantillaRenovacion) === '') {
     volver_con_error('La plantilla del aviso de renovación no puede estar vacía.', $volver);
 }
+[$redesTipos, $errTipos] = redes_tipos_parsear((string) ($_POST['redes_tipos'] ?? implode("\n", redes_tipos())));
+if ($errTipos !== null) {
+    volver_con_error($errTipos, $volver);
+}
 
 cfg_set('nombre_propio', post('nombre_propio'));
 cfg_set('alias_cbu', post('alias_cbu'));
@@ -58,6 +62,12 @@ cfg_set('notif_email', post('notif_email') === '1' ? '1' : '0');
 cfg_set('notif_telegram', post('notif_telegram') === '1' ? '1' : '0');
 cfg_set('portal_activo', post('portal_activo') === '1' ? '1' : '0');
 cfg_set('mp_activo', post('mp_activo') === '1' ? '1' : '0');
+cfg_set('redes_aviso', post('redes_aviso') === '1' ? '1' : '0');
+if ($redesTipos === PUB_TIPOS_DEFECTO) {
+    cfg_borrar('redes_tipos');                   // es la lista por defecto: no hace falta guardarla
+} else {
+    cfg_set('redes_tipos', implode("\n", $redesTipos));
+}
 $plantilla = mb_substr($plantilla, 0, 2000);
 if (trim($plantilla) === trim(PLANTILLA_WHATSAPP_DEFECTO)) {
     cfg_borrar('plantilla_whatsapp');            // es la de por defecto: no hace falta guardarla

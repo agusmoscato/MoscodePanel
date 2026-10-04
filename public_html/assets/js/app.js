@@ -24,6 +24,7 @@
         drawer: { el: function () { return $('#sidebar'); }, clase: 'ov-drawer' },
         sheet:  { el: function () { return $('#sheet-acciones'); }, clase: 'ov-sheet', esSheet: true },
         pago:   { el: function () { return $('#sheet-pago'); }, clase: 'ov-sheet', esSheet: true },
+        publicacion: { el: function () { return $('#sheet-publicacion'); }, clase: 'ov-sheet', esSheet: true },
         modal:  { el: function () { return $('#modal-fondo'); }, clase: 'ov-modal' }
     };
     var abiertos = [];       // pila de nombres abiertos
@@ -41,7 +42,7 @@
         var el = def && def.el();
         if (!el || abiertos.indexOf(nombre) !== -1) { return; }
         if (nombre !== 'modal') {            // drawer y sheet no conviven
-            ['drawer', 'sheet', 'pago'].forEach(function (otro) { if (otro !== nombre) { cerrar(otro); } });
+            ['drawer', 'sheet', 'pago', 'publicacion'].forEach(function (otro) { if (otro !== nombre) { cerrar(otro); } });
         }
         focoPrevio[nombre] = disparador || document.activeElement;
         abiertos.push(nombre);
@@ -76,12 +77,13 @@
             ev.preventDefault();
             var nom = ab.getAttribute('data-abrir');
             if (nom === 'pago') { prepararPago(ab); }
+            if (nom === 'publicacion') { prepararPublicacion(ab); }
             abrir(nom, ab);
             return;
         }
         var ce = t.closest('[data-cerrar]');
         if (ce) { ev.preventDefault(); cerrar(ce.getAttribute('data-cerrar')); return; }
-        if (t.closest('.scrim')) { cerrar('drawer'); cerrar('sheet'); cerrar('pago'); return; }
+        if (t.closest('.scrim')) { cerrar('drawer'); cerrar('sheet'); cerrar('pago'); cerrar('publicacion'); return; }
         // Al tocar un link dentro del drawer, se cierra (la navegación sigue)
         if (t.closest('#sidebar a')) { cerrar('drawer'); }
     });
@@ -106,7 +108,9 @@
         var x0 = 0, y0 = 0, objetivo = null;
         document.addEventListener('touchstart', function (ev) {
             var t = ev.touches[0];
-            objetivo = ev.target.closest ? ev.target.closest('#sidebar, #sheet-acciones, #sheet-pago') : null;
+            objetivo = ev.target.closest ? ev.target.closest('#sidebar, #sheet-acciones, #sheet-pago, #sheet-publicacion') : null;
+            // Deslizar dentro de un campo de texto largo (el copy) es para moverse en el texto, no para cerrar
+            if (objetivo && ev.target.closest('textarea')) { objetivo = null; }
             x0 = t.clientX; y0 = t.clientY;
         }, { passive: true });
         document.addEventListener('touchend', function (ev) {
@@ -115,6 +119,7 @@
             if (objetivo.id === 'sidebar' && dx < -60 && Math.abs(dy) < 50) { cerrar('drawer'); }
             if (objetivo.id === 'sheet-acciones' && dy > 80 && Math.abs(dx) < 60 && objetivo.scrollTop <= 0) { cerrar('sheet'); }
             if (objetivo.id === 'sheet-pago' && dy > 80 && Math.abs(dx) < 60 && objetivo.scrollTop <= 0) { cerrar('pago'); }
+            if (objetivo.id === 'sheet-publicacion' && dy > 80 && Math.abs(dx) < 60 && objetivo.scrollTop <= 0) { cerrar('publicacion'); }
             objetivo = null;
         }, { passive: true });
     })();
@@ -373,6 +378,87 @@
         if (ev.target.matches && ev.target.matches('[data-pago-monto]')) { ev.target.setAttribute('data-tocado', '1'); }
     });
 
+    /* ---------- Sheet "Nueva / Editar publicación" (Redes) ----------
+       Nueva: data-fecha="AAAA-MM-DD" en el botón (si no, hoy). Editar: data-pub-editar="<id de un
+       <script type="application/json">"> con los datos de la publicación (los imprime vistas/publicacion.php). */
+    function prepararPublicacion(disparador) {
+        var form = $('[data-pub-form]');
+        if (!form) { return; }
+        var datos = null;
+        var idJson = disparador && disparador.getAttribute('data-pub-editar');
+        if (idJson && $('#' + idJson)) {
+            try { datos = JSON.parse($('#' + idJson).textContent); } catch (e) { datos = null; }
+        }
+        var v = datos || {
+            id: 0, fecha: (disparador && disparador.getAttribute('data-fecha')) || form.getAttribute('data-hoy'),
+            hora: '', tipo: '', estado: 'idea', titulo: '', copy_texto: '', notas: '', link: ''
+        };
+        var el = form.elements;
+        el.id.value = v.id || 0;
+        ['fecha', 'hora', 'titulo', 'copy_texto', 'notas', 'link'].forEach(function (c) { el[c].value = v[c] || ''; });
+        var tipo = el.tipo;
+        if (v.tipo && !$$('option', tipo).some(function (o) { return o.value === v.tipo; })) {
+            var op = document.createElement('option');     // un tipo que ya no está en la lista sigue valiendo para esta publicación
+            op.value = op.textContent = v.tipo;
+            tipo.appendChild(op);
+        }
+        if (v.tipo) { tipo.value = v.tipo; } else { tipo.selectedIndex = 0; }
+        $$('input[name="estado"]', form).forEach(function (r) { r.checked = r.value === (v.estado || 'idea'); });
+        $$('.campo-error', form).forEach(function (n) { n.remove(); });
+        $$('label.con-error', form).forEach(function (n) { n.classList.remove('con-error'); });
+        var tit = $('[data-pub-sheet-titulo]');
+        if (tit) { tit.textContent = datos ? 'Editar publicación' : 'Nueva publicación'; }
+        form.__enviando = false;
+        window.setTimeout(function () { el.titulo.focus({ preventScroll: true }); }, 380);
+    }
+
+    /* ---------- Calendario de Redes ----------
+       Celular: tocar un día lo elige y muestra debajo sus publicaciones (con "Agregar"). Escritorio: tocar un día
+       (fuera de una publicación) abre el formulario para crear una en esa fecha. Las publicaciones son links. */
+    var cal = $('[data-calendario]');
+    if (cal) {
+        var esMovil = window.matchMedia('(max-width: 767px)');
+        var elegirDia = function (celda) {
+            var fecha = celda.getAttribute('data-fecha');
+            $$('.cal-dia.sel', cal).forEach(function (c) { c.classList.remove('sel'); $('.cal-num', c).removeAttribute('aria-current'); });
+            celda.classList.add('sel');
+            $('.cal-num', celda).setAttribute('aria-current', 'date');
+            var hay = false;
+            $$('[data-dia-panel]').forEach(function (p) {
+                var es = p.getAttribute('data-dia-panel') === fecha;
+                p.hidden = !es;
+                hay = hay || es;
+            });
+            var vacio = $('[data-dia-panel-vacio]');
+            if (vacio) {
+                vacio.hidden = hay;
+                if (!hay) {
+                    $('[data-dia-titulo]', vacio).textContent = celda.getAttribute('data-titulo');
+                    var agregar = $('[data-dia-agregar]', vacio);
+                    agregar.setAttribute('data-fecha', fecha);
+                    agregar.href = cal.getAttribute('data-nueva-url') + '?fecha=' + encodeURIComponent(fecha);
+                }
+            }
+            try {     // el día elegido queda en la URL (al volver de una publicación se ve el mismo día)
+                var u = new URL(window.location.href);
+                u.searchParams.set('dia', fecha);
+                window.history.replaceState(null, '', u.toString());
+            } catch (e) { /* sin URL API: no pasa nada */ }
+        };
+        cal.addEventListener('click', function (ev) {
+            var celda = ev.target.closest('.cal-dia');
+            if (!celda || ev.target.closest('.cal-pub, .cal-agregar')) { return; }   // links y "+" siguen su camino
+            ev.preventDefault();
+            if (esMovil.matches) {
+                elegirDia(celda);
+            } else {
+                var agregar = $('.cal-agregar', celda);
+                prepararPublicacion(agregar);
+                abrir('publicacion', agregar);
+            }
+        });
+    }
+
     /* ---------- Pestañas: <div data-tabs="id"> con .tab[data-tab] y [data-panel] ---------- */
     $$('[data-tabs]').forEach(function (cont) {
         var clave = 'tab-' + cont.getAttribute('data-tabs');
@@ -460,11 +546,34 @@
     document.addEventListener('focusin', function (ev) {
         if (ev.target.hasAttribute && ev.target.hasAttribute('data-seleccionar')) { ev.target.select(); }
     });
-    // Copiar al portapapeles: data-copiar="texto"
+    // Copiar al portapapeles: data-copiar="texto" (data-copiar-ok = mensaje al copiar). Sin la API del portapapeles
+    // (HTTP sin TLS, navegadores viejos) se copia con un textarea oculto y execCommand.
+    function copiarConTextarea(texto) {
+        var ta = document.createElement('textarea');
+        ta.value = texto;
+        ta.setAttribute('readonly', '');
+        ta.className = 'copiar-oculto';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, texto.length);
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+    }
     document.addEventListener('click', function (ev) {
         var b = ev.target.closest && ev.target.closest('[data-copiar]');
-        if (!b || !navigator.clipboard) { return; }
-        navigator.clipboard.writeText(b.getAttribute('data-copiar')).then(function () { toast('ok', 'Copiado al portapapeles'); });
+        if (!b) { return; }
+        var texto = b.getAttribute('data-copiar');
+        var listo = function () { toast('ok', b.getAttribute('data-copiar-ok') || 'Copiado al portapapeles'); };
+        var aMano = function () {
+            if (copiarConTextarea(texto)) { listo(); } else { toast('error', 'No se pudo copiar: seleccioná el texto y copialo a mano.'); }
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(listo, aMano);
+        } else {
+            aMano();
+        }
     });
 
     /* ---------- Gráficos (Chart.js por CDN), con los colores del tema activo ---------- */

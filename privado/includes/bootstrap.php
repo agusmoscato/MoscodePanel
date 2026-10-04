@@ -58,6 +58,7 @@ require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/notificador.php';
 require_once __DIR__ . '/resumen.php';
 require_once __DIR__ . '/whatsapp.php';
+require_once __DIR__ . '/redes.php';
 require_once __DIR__ . '/precios.php';
 require_once __DIR__ . '/consultas.php';
 require_once __DIR__ . '/reportes.php';

@@ -1,4 +1,4 @@
--- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 009).
+-- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 010).
 -- Lo ejecuta public_html/install.php; también se puede importar a mano desde phpMyAdmin.
 -- Cada sentencia termina con ";" al final de línea (el instalador separa por eso).
 --
@@ -6,6 +6,10 @@
 -- cargos, pagos, planes, historiales, logs y configuración). Las únicas tablas compartidas son
 -- feriados, configuracion (solo ajustes globales) y cotizaciones (las automáticas; las manuales
 -- llevan el usuario_id de quien las cargó).
+--
+-- Todo en utf8mb4 (emojis incluidos): la base, cada tabla y la conexión (privado/includes/db.php).
+
+ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -333,4 +337,22 @@ CREATE TABLE IF NOT EXISTS registro_actividad (
     INDEX idx_usuario (usuario_id, id),
     INDEX idx_visibilidad (visibilidad, id),
     CONSTRAINT fk_act_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Calendario de publicaciones para redes sociales (cada usuario el suyo)
+CREATE TABLE IF NOT EXISTS publicaciones (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT UNSIGNED NOT NULL,
+    fecha DATE NOT NULL,
+    hora TIME NULL,
+    tipo VARCHAR(40) NOT NULL,
+    estado ENUM('idea','preparacion','listo','publicado') NOT NULL DEFAULT 'idea',
+    titulo VARCHAR(160) NOT NULL,
+    copy_texto TEXT NULL,
+    notas TEXT NULL,
+    link VARCHAR(500) NOT NULL DEFAULT '',
+    creado_en DATETIME NOT NULL,
+    actualizado_en DATETIME NULL,
+    INDEX idx_usuario_fecha (usuario_id, fecha, hora),
+    CONSTRAINT fk_pub_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
