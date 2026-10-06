@@ -14,11 +14,15 @@ $pfTipos = redes_tipos();
 if ($p && !in_array($p['tipo'], $pfTipos, true)) {
     $pfTipos[] = $p['tipo'];           // un tipo que ya no está en la lista sigue valiendo para esta publicación
 }
-$base = $p ?? ['fecha' => $fecha, 'hora' => '', 'tipo' => $pfTipos[0], 'estado' => 'idea', 'titulo' => '', 'copy_texto' => '', 'notas' => '', 'link' => ''];
+$pfRedes = array_values(array_unique(array_merge(redes_plataformas(), pub_redes($p['redes'] ?? ''))));   // ídem con las redes
+$base = $p ?? ['fecha' => $fecha, 'hora' => '', 'tipo' => $pfTipos[0], 'redes' => '', 'estado' => 'idea', 'titulo' => '', 'copy_texto' => '', 'notas' => '',
+    'link' => '', 'link_publicado' => ''];
 $pf = ['id' => $id, 'hora' => viejo('hora', hora_corta($base['hora']))];
-foreach (['fecha', 'tipo', 'estado', 'titulo', 'copy_texto', 'notas', 'link'] as $campo) {
+foreach (['fecha', 'tipo', 'estado', 'titulo', 'copy_texto', 'notas', 'link', 'link_publicado'] as $campo) {
     $pf[$campo] = viejo($campo, $base[$campo]);
 }
+$viejasRedes = $_SESSION['viejo']['redes'] ?? null;      // al volver con un error, las que había tildado
+$pf['redes'] = is_array($viejasRedes) ? array_map('strval', $viejasRedes) : (isset($_SESSION['viejo']) ? [] : pub_redes($base['redes']));
 $titulo = $id ? 'Editar publicación' : 'Nueva publicación';
 $volver = $p ? url('publicacion', ['id' => $id]) : url('redes', ['mes' => substr($fecha, 0, 7), 'dia' => $fecha]);
 ?>

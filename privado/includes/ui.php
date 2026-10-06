@@ -30,9 +30,26 @@ function icono(string $nombre, string $clase = ''): string
  */
 function monto_html($monto, string $moneda = 'ARS', string $clase = '', int $decimales = 2): string
 {
+    montos_marcar();
     $simbolo = MONEDAS[$moneda] ?? $moneda;
     return '<span class="monto mono ' . e($clase) . ($moneda === 'USD' ? ' usd' : '') . '"><span class="mon">' . e($simbolo)
         . '</span> <span class="val">' . e(number_format((float) $monto, $decimales, ',', '.')) . '</span></span>';
+}
+
+/**
+ * Marca que la pantalla en curso pintó al menos un monto. El layout se arma DESPUÉS del contenido (panel.php lo
+ * renderiza en un buffer), así que sabe si la pantalla tiene montos y muestra el botón del ojito solo entonces:
+ * una pantalla nueva que use monto_html() lo tiene sin acordarse de nada.
+ */
+function montos_marcar(): void
+{
+    $GLOBALS['__montos_pintados'] = true;
+}
+
+/** ¿Se pintó algún monto en esta pantalla (hasta ahora)? */
+function montos_pintados(): bool
+{
+    return !empty($GLOBALS['__montos_pintados']);
 }
 
 /** Monto escrito en un texto: "$ 1.234,50", "US$ 40,00" o un número con formato de plata sin símbolo ("1.234,50"). */
@@ -51,6 +68,7 @@ function montos_en_texto_html(string $texto): string
     foreach ($textos as $k => $t) {
         $html .= e($t);
         if (isset($coinc[$k])) {
+            montos_marcar();
             $m = $coinc[$k];
             $html .= ($m[1] ?? '') !== ''
                 ? '<span class="monto"><span class="mon">' . e($m[1]) . '</span> <span class="val">' . e($m[2]) . '</span></span>'

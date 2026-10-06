@@ -1,6 +1,6 @@
 <?php
 /**
- * redes.php — Módulo Redes (calendario de publicaciones): crear, editar, duplicar, cambiar estado y eliminar con las
+ * redes.php — Módulo Redes (calendario de publicaciones): crear, editar, mover de día, cambiar estado y eliminar con las
  * acciones reales (en subproceso, como desde el formulario), validaciones, emojis en el copy (utf8mb4 de punta a
  * punta: columna, conexión y vuelta exacta), tipos editables, el aviso del día y el aislamiento entre usuarios.
  * Lo que se ve por HTTP (pantallas, CSP, JSON del formulario) está en http_redes.php.
@@ -130,27 +130,59 @@ fijar_usuario($usuario);
 verificar('un estado inexistente no cambia nada', 'publicado', publicacion_obtener($idA)['estado']);
 verificar('la lista de estados es fija y en orden', ['idea', 'preparacion', 'listo', 'publicado'], array_keys(PUB_ESTADOS));
 
-seccion('duplicar');
+seccion('ya no existe "Duplicar"');
+verificar('sin acción publicacion_duplicar', false, is_file(RAIZ_PROYECTO . '/privado/acciones/publicacion_duplicar.php'));
+verificar('sin función publicacion_duplicar()', false, function_exists('publicacion_duplicar'));
+
+seccion('redes (selección múltiple, lista editable) y link de la publicación');
+verificar('redes por defecto', ['Instagram', 'Facebook', 'LinkedIn', 'TikTok'], redes_plataformas());
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['titulo' => 'Con redes', 'redes' => ['Instagram', 'TikTok', 'Instagram']]));
+fijar_usuario($usuario);
+$conRedes = $ultima();
+verificar('se guardan las redes elegidas (sin repetir)', 'Instagram,TikTok', $conRedes['redes']);
+verificar('pub_redes() las devuelve como lista', ['Instagram', 'TikTok'], pub_redes($conRedes['redes']));
+$antes = $cantidad();
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['titulo' => 'Red inventada', 'redes' => ['Instagram', 'MySpace']]));
+fijar_usuario($usuario);
+verificar('una red que no está en la lista: no se crea', $antes, $cantidad());
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['titulo' => 'Sin redes']));
+fijar_usuario($usuario);
+verificar('sin redes elegidas: queda vacío', '', $ultima()['redes']);
+cfg_set('redes_plataformas', "Instagram\nYouTube");
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['id' => (string) $conRedes['id'], 'titulo' => 'Con redes (editada)', 'redes' => ['TikTok', 'YouTube']]));
+fijar_usuario($usuario);
+verificar('editar: una red que se quitó de la lista pero la publicación ya tenía, se conserva; una nueva de la lista, también',
+    'TikTok,YouTube', publicacion_obtener((int) $conRedes['id'])['redes']);
+cfg_borrar('redes_plataformas');
+verificar('íconos: Instagram con su ícono, una red desconocida con sus iniciales',
+    [true, true], [str_contains(red_icono_html('Instagram'), '#red-instagram'), str_contains(red_icono_html('YouTube'), '<i class="red-ini">YO</i>')]);
+verificar('parser de redes: mensaje propio', 'Cargá al menos una red social (por ejemplo Instagram).',
+    redes_tipos_parsear('', 'red social', 'redes sociales', 'Instagram', 'una')[1]);
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['titulo' => 'Ya publicada', 'estado' => 'publicado', 'link_publicado' => 'https://www.instagram.com/p/abc123/']));
+fijar_usuario($usuario);
+verificar('link de la publicación guardado', 'https://www.instagram.com/p/abc123/', $ultima()['link_publicado']);
+$antes = $cantidad();
+ejecutar_accion($usuario, 'publicacion_guardar', array_merge($base, ['titulo' => 'Link malo', 'estado' => 'publicado', 'link_publicado' => 'instagram.com/p/x']));
+fijar_usuario($usuario);
+verificar('link de la publicación inválido: no se crea', $antes, $cantidad());
+
+seccion('contador del copy (límite de Instagram, hashtags): solo informativo');
+verificar('copy_contador: caracteres y hashtags', [33, 3], copy_contador('Hola 👋 #marketing #emprende #café'));
+verificar('texto normal', '32 / 2.200 caracteres · 3 hashtags', texto_contador(32, 3));
+verificar('cerca del límite', '2.100 / 2.200 caracteres · 1 hashtag — cerca del límite de Instagram', texto_contador(2100, 1));
+verificar('pasado del límite', '2.201 / 2.200 caracteres · 0 hashtags — se pasa del límite de Instagram', texto_contador(2201, 0));
+[$largoIg, $errIg] = publicacion_validar(array_merge($base, ['copy_texto' => str_repeat('a', PUB_LIMITE_INSTAGRAM + 300)]));
+verificar('un copy de más de 2.200 caracteres se guarda igual (no bloquea)', null, $errIg);
+
+seccion('mover a otro día (arrastrar y soltar): acción por fetch');
 $en10 = date('Y-m-d', strtotime('+10 days'));
-$antes = $cantidad();
-ejecutar_accion($usuario, 'publicacion_duplicar', ['id' => (string) $idA, 'fecha' => $en10]);
+ejecutar_accion($usuario, 'publicacion_mover', ['id' => (string) $sinHora['id'], 'fecha' => $en10]);
 fijar_usuario($usuario);
-$copia = $ultima();
-$orig = publicacion_obtener($idA);
-verificar('se creó una copia', $antes + 1, $cantidad());
-verificar('la copia va en la fecha elegida', $en10, $copia['fecha']);
-verificar('copia: mismo tipo, hora, título, copy (con emojis), notas y link',
-    [$orig['tipo'], $orig['hora'], $orig['titulo'], $orig['copy_texto'], $orig['notas'], $orig['link']],
-    [$copia['tipo'], $copia['hora'], $copia['titulo'], $copia['copy_texto'], $copia['notas'], $copia['link']]);
-verificar('la original estaba Publicado: la copia queda Listo', 'listo', $copia['estado']);
-verificar('la original no cambia', [$en3, 'publicado'], [$orig['fecha'], $orig['estado']]);
-ejecutar_accion($usuario, 'publicacion_duplicar', ['id' => (string) $sinHora['id'], 'fecha' => $en10]);
+verificar('cambió la fecha', $en10, publicacion_obtener((int) $sinHora['id'])['fecha']);
+verificar('lo demás no cambia', ['Sin hora ni copy', 'idea'], [publicacion_obtener((int) $sinHora['id'])['titulo'], publicacion_obtener((int) $sinHora['id'])['estado']]);
+ejecutar_accion($usuario, 'publicacion_mover', ['id' => (string) $sinHora['id'], 'fecha' => '2026-02-30']);
 fijar_usuario($usuario);
-verificar('duplicar una en Idea: la copia sigue en Idea', 'idea', $ultima()['estado']);
-$antes = $cantidad();
-ejecutar_accion($usuario, 'publicacion_duplicar', ['id' => (string) $idA, 'fecha' => 'mañana']);
-fijar_usuario($usuario);
-verificar('duplicar con una fecha inválida: no crea nada', $antes, $cantidad());
+verificar('una fecha inválida no la mueve', $en10, publicacion_obtener((int) $sinHora['id'])['fecha']);
 
 seccion('calendario: semanas de lunes a domingo');
 $oct = calendario_semanas('2026-10');
@@ -202,13 +234,13 @@ verificar('usa_redes(): la ajena no', false, usa_redes());
 foreach ([
     'publicacion_guardar' => ['id' => (string) $idA, 'fecha' => $hoy, 'hora' => '', 'tipo' => 'Post', 'estado' => 'idea', 'titulo' => 'Pisada', 'copy_texto' => '', 'notas' => '', 'link' => ''],
     'publicacion_estado' => ['id' => (string) $idA, 'estado' => 'idea'],
-    'publicacion_duplicar' => ['id' => (string) $idA, 'fecha' => $hoy],
+    'publicacion_mover' => ['id' => (string) $idA, 'fecha' => $hoy],
     'publicacion_eliminar' => ['id' => (string) $idA],
 ] as $accion => $datos) {
     ejecutar_accion($ajena, $accion, $datos);
     verificar("$accion con el id de la dueña: los datos de la dueña no cambian", $huellaInicial, $huella());
 }
 fijar_usuario($ajena);
-verificar('y a la ajena no le quedó ninguna copia (ni al duplicar ni al "editar" un id ajeno)', 0, $cantidad());
+verificar('y a la ajena no le quedó ninguna (ni al "editar" un id ajeno)', 0, $cantidad());
 verificar('control: la dueña sigue teniendo todas las suyas', $cantDuena, con_usuario($usuario, $cantidad));
 verificar('control: la dueña sí ve la suya', 'Post2 - Mito vs Realidad (v3)', con_usuario($usuario, fn() => publicacion_obtener($idA)['titulo'] ?? null));

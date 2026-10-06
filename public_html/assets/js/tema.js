@@ -8,6 +8,7 @@
     'use strict';
     var raiz = document.documentElement;
     var COLORES = { dark: '#141517', light: '#F3F4F6' };
+    raiz.classList.add('js');      // hay JS: las secciones del menú se pueden plegar (sin JS se ven todas abiertas)
 
     function leer(clave) {
         try { return window.localStorage.getItem(clave); } catch (e) { return null; }

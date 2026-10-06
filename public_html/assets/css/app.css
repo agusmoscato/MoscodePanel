@@ -151,7 +151,23 @@ html.ov-drawer .sidebar { transform: none; visibility: visible; box-shadow: var(
 .logo-txt { font-family: var(--mono); font-weight: 700; }
 .sb-accion { margin: 0 var(--s2) var(--s4); }
 .sb-nav { display: flex; flex-direction: column; gap: var(--s1); flex: 1; }
-.sb-titulo { margin: var(--s4) var(--s3) var(--s1); font-size: .6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-2); }
+/* Secciones desplegables: el encabezado es un botón (aria-expanded); el cuerpo se abre con una transición de alto
+   (grid-template-rows 0fr → 1fr). Plegadas solo con JS (html.js, lo pone tema.js): sin JS se ve todo. */
+.sb-grupo + .sb-grupo { margin-top: var(--s2); }
+.sb-titulo {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--s2); width: 100%; min-height: 36px;
+    padding: 0 var(--s3); border: 0; border-radius: var(--r-md); background: none; cursor: pointer; text-align: left;
+    font: inherit; font-size: .6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--text-2);
+}
+.sb-titulo:hover { background: var(--elev); color: var(--text); }
+.sb-flecha { transition: transform .25s var(--ease); }
+.sb-items { display: grid; grid-template-rows: 1fr; }
+/* El margen negativo deja ver la marca del ítem activo (::before a -12px) aunque el cuerpo recorte al plegarse */
+.sb-items-in { display: flex; flex-direction: column; gap: var(--s1); min-height: 0; overflow: hidden; margin: 0 calc(-1 * var(--s3)); padding: 2px var(--s3); }
+.js .sb-items { grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .25s var(--ease), visibility .25s; }
+.js .sb-grupo:not(.abierto) .sb-flecha { transform: rotate(-90deg); }
+.js .sb-grupo.abierto .sb-items { grid-template-rows: 1fr; visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .js .sb-items, .sb-flecha { transition: none; } }
 .nav-item {
     display: flex; align-items: center; gap: var(--s3); min-height: 44px; padding: 0 var(--s3);
     border-radius: var(--r-md); color: var(--text-2); font-weight: 500; text-decoration: none; position: relative;
@@ -239,6 +255,9 @@ html.ov-drawer .sidebar { transform: none; visibility: visible; box-shadow: var(
     html.sidebar-min .cotiz { min-height: 44px; background: none; border-color: transparent; }
     html.sidebar-min .sb-accion { margin-inline: var(--s1); }
     html.sidebar-min .sb-accion .btn { padding: 0; }
+    /* Colapsado a íconos: sin acordeón, todos los íconos a la vista, una línea fina entre secciones (nombre en el title) */
+    html.sidebar-min .sb-items { grid-template-rows: 1fr; visibility: visible; transition: none; }
+    html.sidebar-min .sb-grupo + .sb-grupo { margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--border); }
 }
 
 /* Cabecera de página */
@@ -816,13 +835,20 @@ body.portal { background: var(--bg); }
     .cal-dia.hoy .cal-num { background: var(--accent); color: var(--on-accent); box-shadow: none; opacity: 1; }
     .cal-puntos { display: none; }
     .cal-pubs { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .cal-pub { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 6px; border-radius: 6px; background: var(--mute-bg); color: var(--text); font-size: .75rem; line-height: 1.4; text-decoration: none; }
+    .cal-pub { display: flex; align-items: flex-start; gap: 6px; min-width: 0; padding: 2px 6px; border-radius: 6px; background: var(--mute-bg); color: var(--text); font-size: .75rem; line-height: 1.4; text-decoration: none; }
     .cal-pub.est-preparacion { background: var(--warn-bg); }
     .cal-pub.est-listo { background: var(--info-bg); }
     .cal-pub.est-publicado { background: var(--ok-bg); }
     .cal-pub:hover { text-decoration: none; box-shadow: inset 0 0 0 1px var(--text-2); }
     .cal-pub .pub-punto { width: 8px; height: 8px; }
-    .cal-pub-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Título completo: hace salto de línea dentro de la etiqueta y la celda crece (la grilla iguala la altura de la semana) */
+    .cal-pub-txt { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+    .cal-pub .pub-punto { margin-top: 5px; }
+    .cal-pub .redes-iconos { margin: 0 2px 0 4px; vertical-align: -2px; }
+    /* Arrastrar y soltar (solo escritorio) */
+    .cal-pub[draggable="true"] { cursor: grab; }
+    .cal-pub.arrastrando { opacity: .45; }
+    .cal-dia.soltar-aca { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
     .cal-pub-tipo { font-weight: 600; }
     .cal-agregar { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--text-2); opacity: 0; transition: opacity .15s; }
     .cal-dia:hover .cal-agregar, .cal-agregar:focus-visible { opacity: 1; }
@@ -846,8 +872,6 @@ body.portal { background: var(--bg); }
 .pub-copy { max-height: 60vh; overflow-y: auto; padding: var(--s3) var(--s4); background: var(--elev); border: 1px solid var(--border); border-radius: var(--r-md); font-size: .9375rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .pub-notas { white-space: pre-wrap; }
 textarea.pub-copy-campo { min-height: 180px; }
-.pub-duplicar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s3); }
-.pub-duplicar label { flex: 1 1 200px; }
 /* Copiar sin la API del portapapeles (HTTP o navegador viejo): textarea fuera de pantalla */
 .copiar-oculto { position: fixed; top: 0; left: -9999px; opacity: 0; }
 @media print { .cal-agregar, .cal-nav, .cal-panel { display: none !important; } .pub-copy { max-height: none; overflow: visible; } }
@@ -861,16 +885,26 @@ textarea.pub-copy-campo { min-height: 180px; }
     .montos-ocultos .monto > .val { display: none; }
     .montos-ocultos .monto::after { content: "•••••"; letter-spacing: .06em; }
 }
-.monto.sin-simbolo > .mon { display: none; }
 .ojito .ojo-cerrado, .montos-ocultos .ojito .ojo-abierto { display: none; }
 .montos-ocultos .ojito .ojo-cerrado { display: inline; }
 .montos-ocultos .ojito { color: var(--accent-fg); }
 .barra-escritorio { display: none; }
 @media (min-width: 1024px) {
-    /* Escritorio: barra fina arriba del contenido, siempre visible (la topbar con el ojito es solo del celular) */
+    /* Escritorio: barra fina arriba del contenido, fija al bajar (solo en pantallas con montos; la topbar es del celular) */
     .barra-escritorio { position: sticky; top: 0; z-index: 40; display: flex; justify-content: flex-end; width: 100%; max-width: 1180px; margin: 0 auto;
         padding: var(--s3) var(--s8) 0; pointer-events: none; }
     .barra-escritorio .ojito { pointer-events: auto; background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--border);
         backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-    .contenido { padding-top: var(--s2); }
+    .barra-escritorio + .contenido { padding-top: var(--s2); }   /* sin ojito (pantalla sin montos) queda el padding de siempre */
 }
+
+/* Redes: íconos de red, contador del copy, texto solo para lectores de pantalla */
+.redes-iconos { display: inline-flex; align-items: center; gap: 3px; color: var(--text-2); }
+.red-ico { display: inline-flex; align-items: center; font-style: normal; }
+.red-ico .ico.chico { width: 14px; height: 14px; }
+.red-ini { font-style: normal; font-size: .625rem; font-weight: 700; letter-spacing: .02em; padding: 1px 3px; border-radius: 4px; background: var(--mute-bg); color: var(--mute); }
+.chip-radio .red-ico { margin-right: 6px; }
+.chip.red-chip { gap: 4px; }
+.sr-solo { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.pub-contador.cerca { color: var(--warn); }
+.pub-contador.pasado { color: var(--bad); font-weight: 600; }

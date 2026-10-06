@@ -70,7 +70,7 @@ $montosSueltos = function (string $html): array {
     libxml_clear_errors();
     $xp = new DOMXPath($doc);
     // Los ayudantes en vivo de un formulario (cantidad × precio, suma de las cuotas) son parte de lo que se está cargando
-    foreach ($xp->query('//script|//style|//template|//textarea|//input|//select|//noscript|//*[@id="flash-data"]|//*[@data-calc-resultado]|//*[@data-suma-estado]') as $n) {
+    foreach ($xp->query('//script|//style|//template|//textarea|//input|//select|//noscript|//*[@id="flash-data"]|//*[@data-calc-resultado]|//*[@data-suma-estado]|//*[@data-monto-publico]') as $n) {
         $n->parentNode->removeChild($n);
     }
     $dentroDeMonto = 'ancestor-or-self::*[contains(concat(" ", normalize-space(@class), " "), " monto ")]';
@@ -109,7 +109,7 @@ $nav->login($u['usuario'], $u['clave']);
 $pantallas = ['/', '/clientes', '/clientes?estado=todos', '/clientes?deuda=1', '/cobros', '/cobros?estado=todos', '/vencimientos', '/cuotas',
     '/cuotas?estado=todos', '/precios', "/precios?previsualizar=1&clientes[]=$cli&clientes[]=$cli2&porcentaje=10&redondeo=ninguno", '/reportes',
     '/reportes?anio=' . date('Y'), '/dolar', '/configuracion', '/mi-cuenta', '/notificaciones', '/actividad', '/usuarios', '/backups', '/feriados',
-    '/elegir-cliente?para=pago', '/redes', '/redes?vista=lista', "/redes/$pub",
+    '/elegir-cliente?para=pago', '/redes', '/redes?vista=lista', "/redes/$pub", '/servicios', '/servicios?estado=', '/dominios', '/dominios?estado=',
     "/clientes/$cli", "/clientes/$cli/resumen", "/clientes/$cli2", "/clientes/$cli2/resumen", "/clientes/$cli/editar", "/servicios/$srv/editar",
     "/dominios/$dom/editar", "/cuotas/$plan", "/cuotas/$plan/editar", "/clientes/$cli2/cuotas/nueva", "/pagos/nuevo?cliente_id=$cli2",
     "/pagos/$pago/anular"];
@@ -124,6 +124,44 @@ foreach ($pantallas as $ruta) {
 $dash = $nav->get('/')['cuerpo'];
 verificar_cierto('control: el dashboard sí tiene montos (dentro de .monto)', substr_count($dash, '<span class="val">') > 3);
 verificar_contiene('control: el saldo a favor se ve en la ficha (como monto)', '<span class="val">' . number_format(pago_sin_imputar($pagoFavor), 2, ',', '.') . '</span>', $nav->get("/clientes/$cli")['cuerpo']);
+
+seccion('el botón del ojo aparece si y solo si la pantalla tiene algún .monto (decidido solo, sin lista a mano)');
+$hayMonto = fn(string $h) => (bool) preg_match('/class="monto[\s"]/', $h);
+$hayOjito = fn(string $h) => str_contains($h, 'data-montos-toggle');
+$conYsin = ['con' => 0, 'sin' => 0];
+$recorridas = array_merge($pantallas, ["/redes/nueva", "/redes/$pub/editar", '/mi-cuenta/dos-pasos', '/usuarios/nuevo', '/clientes/nuevo',
+    "/clientes/$cli/servicios/nuevo", "/clientes/$cli/dominios/nuevo", '/cambiar-clave', '/no-existe']);
+// Cobertura: entre las rutas recorridas está cada vista del panel (una pantalla nueva que no se agregue acá hace fallar esto)
+$vistasRecorridas = [];
+foreach ($recorridas as $ruta) {
+    $res = resolver_ruta('GET', (string) parse_url($ruta, PHP_URL_PATH), []);
+    if (($res['tipo'] ?? '') === 'vista') {
+        $vistasRecorridas[$res['nombre']] = true;
+    }
+}
+verificar('se recorren TODAS las vistas del panel (las que faltan)', [], array_values(array_diff(array_keys(RUTAS_VISTAS), array_keys($vistasRecorridas))));
+foreach ($recorridas as $ruta) {
+    $h = $nav->get($ruta)['cuerpo'];
+    $conYsin[$hayMonto($h) ? 'con' : 'sin']++;
+    verificar("$ruta: " . ($hayMonto($h) ? 'tiene montos → con ojito' : 'sin montos → sin ojito'), $hayMonto($h), $hayOjito($h));
+}
+verificar_cierto('control: se recorrieron pantallas con y sin montos (' . $conYsin['con'] . ' con, ' . $conYsin['sin'] . ' sin)', $conYsin['con'] >= 10 && $conYsin['sin'] >= 8);
+foreach (['/' => true, "/clientes/$cli" => true, '/cobros' => true, '/cuotas' => true, '/reportes' => true, "/precios?previsualizar=1&clientes[]=$cli&porcentaje=10&redondeo=ninguno" => true, '/dolar' => true,
+    '/servicios' => true, '/dominios' => true, '/redes' => false, '/configuracion' => false, '/usuarios' => false, '/feriados' => false, '/backups' => false] as $ruta => $esperado) {
+    verificar("$ruta: " . ($esperado ? 'con' : 'sin') . ' ojito', $esperado, $hayOjito($nav->get($ruta)['cuerpo']));
+}
+$fresca = nuevo_usuario_con_clave('ojito_fresca', 'Clave-Ojito-2026');
+$navFresca = new Navegador();
+$navFresca->login($fresca['usuario'], $fresca['clave']);
+verificar('Mi cuenta (sin montos en su actividad): sin ojito', false, $hayOjito($navFresca->get('/mi-cuenta')['cuerpo']));
+fijar_usuario($u['id']);
+
+seccion('la cotización del dólar del sidebar y la topbar: dato público, siempre visible (no es un .monto)');
+$redes = $nav->get('/redes')['cuerpo'];
+verificar_contiene('sidebar: la cotización se ve, marcada como pública', '<span class="cotiz-val" data-monto-publico>$ 1.234,56</span>', $redes);
+verificar_contiene('topbar: ídem', '<span class="cotiz-val" data-monto-publico>1.235</span>', $redes);
+verificar('… y no es un .monto (no la oculta el ojito ni hace aparecer el botón)', false, $hayMonto($redes));
+verificar_contiene('el estado del ojito se mantiene en todas las pantallas: tema.js lo aplica aunque no haya botón', '/assets/js/tema.js', $redes);
 
 seccion('el botón del ojo: en la topbar (celular) y arriba del contenido (escritorio)');
 verificar_contiene('ojito en la topbar', 'ojito ojito-topbar" data-montos-toggle aria-pressed="false" aria-label="Ocultar montos"', $dash);

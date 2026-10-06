@@ -10,7 +10,8 @@ $volver = $id ? url('publicacion_form', ['id' => $id]) : url('publicacion_form',
 [$datos, $error] = publicacion_validar([
     'fecha' => post('fecha'), 'hora' => post('hora'), 'tipo' => post('tipo'), 'estado' => post('estado', 'idea'),
     'titulo' => post('titulo'), 'copy_texto' => texto_largo('copy_texto'), 'notas' => texto_largo('notas'), 'link' => post('link'),
-], $actual['tipo'] ?? '');
+    'redes' => is_array($_POST['redes'] ?? null) ? $_POST['redes'] : [], 'link_publicado' => post('link_publicado'),
+], $actual ?? []);
 if ($error !== null) {
     volver_con_error($error, $volver);
 }

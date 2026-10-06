@@ -11,9 +11,10 @@ declare(strict_types=1);
 
 /** Para cada versión publicada: commit cuyo install.sql se toma como "instalación vieja" y las migraciones que le faltan. */
 $versionesViejas = [
-    '10c16dc' => ['migracion_008.sql', 'migracion_009.sql', 'migracion_010.sql'],
-    'efb0307' => ['migracion_009.sql', 'migracion_010.sql'],
-    '0042689' => ['migracion_010.sql'],
+    '10c16dc' => ['migracion_008.sql', 'migracion_009.sql', 'migracion_010.sql', 'migracion_011.sql'],
+    'efb0307' => ['migracion_009.sql', 'migracion_010.sql', 'migracion_011.sql'],
+    '0042689' => ['migracion_010.sql', 'migracion_011.sql'],
+    '2a41891' => ['migracion_011.sql'],
 ];
 
 $dbCfg = config_db_prueba();
@@ -99,6 +100,9 @@ $esquemaNuevo = $esquema($baseNueva);
 verificar_cierto('install.sql actual: dominios tiene dias_anticipo', (bool) preg_grep('/^dias_anticipo \|/', $esquemaNuevo['dominios']['columnas'] ?? []));
 verificar_cierto('existe migracion_010.sql (Redes y utf8mb4)', is_file($dirInstall . '/migracion_010.sql'));
 verificar_cierto('install.sql actual: tabla publicaciones con copy_texto', (bool) preg_grep('/^copy_texto \| text \|/', $esquemaNuevo['publicaciones']['columnas'] ?? []));
+verificar_cierto('existe migracion_011.sql (redes y link de la publicación)', is_file($dirInstall . '/migracion_011.sql'));
+verificar_cierto('install.sql actual: publicaciones tiene redes y link_publicado', (bool) preg_grep('/^redes \|/', $esquemaNuevo['publicaciones']['columnas'] ?? [])
+    && (bool) preg_grep('/^link_publicado \|/', $esquemaNuevo['publicaciones']['columnas'] ?? []));
 
 seccion('install.sql: todo en utf8mb4 (la base, y cada columna de texto de cada tabla)');
 /** Columnas de texto de $nombre que NO están en utf8mb4 (lista vacía = bien) y el charset por defecto de la base. */
@@ -160,7 +164,7 @@ if ($viejo === null) {
     $armarBase($baseMigrada, [$viejo, 'ALTER TABLE feriados CONVERT TO CHARACTER SET latin1 COLLATE latin1_swedish_ci;'], 'latin1');
     $antes = $noUtf8mb4($baseMigrada);
     verificar_cierto('antes de la 010: la base está en latin1 y feriados también', $antes['base'] === 'latin1' && (bool) preg_grep('/^feriados\./', $antes['columnas']));
-    $armarBase($baseMigrada, [$viejo, 'ALTER TABLE feriados CONVERT TO CHARACTER SET latin1 COLLATE latin1_swedish_ci;', file_get_contents($dirInstall . '/migracion_010.sql')], 'latin1');
+    $armarBase($baseMigrada, [$viejo, 'ALTER TABLE feriados CONVERT TO CHARACTER SET latin1 COLLATE latin1_swedish_ci;', file_get_contents($dirInstall . '/migracion_010.sql'), file_get_contents($dirInstall . '/migracion_011.sql')], 'latin1');
     $despues = $noUtf8mb4($baseMigrada);
     verificar('después de la 010: la base queda en utf8mb4', 'utf8mb4', $despues['base']);
     verificar('después de la 010: ninguna columna de texto fuera de utf8mb4', [], $despues['columnas']);

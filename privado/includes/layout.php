@@ -5,37 +5,42 @@
  *   Escritorio (≥1024px): sidebar fijo colapsable.
  *   Celular: topbar + barra inferior + drawer (el mismo sidebar) + botón flotante de acciones rápidas.
  */
+// ¿La pantalla pintó montos? El contenido ya se renderizó (panel.php lo arma en un buffer antes de incluir este
+// archivo): se lee ANTES de dibujar nada del layout. El botón del ojito aparece solo si hay montos.
+$conMontos = montos_pintados();
 $cot = cotizacion_vigente();
 $cotFalla = cfg('cotizacion_error') !== '';
 $nombreDolar = DOLAR_TIPOS[cfg('dolar_tipo', 'blue')] ?? 'Dólar';
 
-// Secciones del menú: [página, texto, ícono]
+// Secciones del menú (desplegables): id => [nombre, ítems [página, texto, ícono, tooltip (si no, el texto)]]
 $grupos = [
-    'Principal' => [
+    'principal' => ['Principal', [
         ['dashboard', 'Inicio', 'house'],
         ['clientes', 'Clientes', 'users'],
         ['cargos', 'Cobros', 'receipt'],
         ['vencimientos', 'Vencimientos', 'calendar-clock'],
         ['redes', 'Redes', 'megaphone'],
-    ],
-    'Gestión' => [
-        ['precios', 'Precios', 'tag'],
+    ]],
+    'gestion' => ['Gestión', [
+        ['planes', 'Cuotas', 'credit-card'],
+        ['servicios', 'Servicios', 'layers'],
+        ['dominios', 'Dominios', 'globe'],
+        ['precios', 'Ajuste de precios', 'tag'],
         ['reportes', 'Reportes', 'chart-column'],
         ['cotizacion', 'Dólar', 'circle-dollar-sign'],
-    ],
-    'Sistema' => [
-        ['mi_cuenta', 'Mi cuenta', 'circle-user'],
+    ]],
+    'sistema' => ['Sistema', [
         ['configuracion', 'Configuración', 'settings'],
+        ['mi_cuenta', 'Mi cuenta', 'circle-user'],
         ['feriados', 'Feriados', 'calendar-days'],
-        ['notificaciones', 'Notificaciones', 'bell'],
-    ],
+        // El log de webhooks de Mercado Pago está en la misma pantalla que las notificaciones enviadas
+        ['notificaciones', 'Notificaciones', 'bell', 'Notificaciones enviadas y log de webhooks'],
+    ]],
 ];
-// Ventas en cuotas, junto a los cobros
-array_splice($grupos['Principal'], 3, 0, [['planes', 'Cuotas', 'credit-card']]);
 if (es_admin($usuario)) {
-    $grupos['Sistema'][] = ['usuarios', 'Usuarios', 'users'];
-    $grupos['Sistema'][] = ['actividad', 'Actividad', 'list-checks'];
-    $grupos['Sistema'][] = ['backups', 'Backups', 'download'];
+    array_splice($grupos['sistema'][1], 2, 0, [['usuarios', 'Usuarios', 'users']]);
+    $grupos['sistema'][1][] = ['actividad', 'Registro de actividad', 'list-checks'];
+    $grupos['sistema'][1][] = ['backups', 'Backups', 'download'];
 }
 // Las pantallas hijas resaltan la sección a la que pertenecen
 $seccion = match ($pagina) {
@@ -48,6 +53,13 @@ $seccion = match ($pagina) {
     'pago_anular' => 'clientes',
     default => $pagina,
 };
+// Principal arranca desplegada; Gestión y Sistema cerradas, salvo la que tiene la pantalla actual (se abre sola)
+$grupoActual = 'principal';
+foreach ($grupos as $idGrupo => [, $items]) {
+    if (in_array($seccion, array_column($items, 0), true)) {
+        $grupoActual = $idGrupo;
+    }
+}
 $principales = ['dashboard', 'clientes', 'cargos', 'vencimientos'];
 
 // Acciones rápidas: si estamos dentro de la ficha de un cliente, ya van con ese cliente
@@ -69,7 +81,9 @@ $rapidas = [
     ['Nueva publicación', 'megaphone', url('publicacion_form'), ' data-abrir="publicacion"'],
 ];
 $flash = flash_obtener();
-// Botón "ojito" (ocultar montos): en la topbar (celular) y en la barra de arriba del contenido (escritorio).
+// Botón "ojito" (ocultar montos): en la topbar (celular) y en la barra de arriba del contenido (escritorio), solo si
+// la pantalla tiene montos ($conMontos). La cotización del dólar del sidebar y de la topbar es un dato público: se
+// muestra siempre (no es un .monto; lleva data-monto-publico para que la prueba de montos sueltos lo sepa).
 // El estado lo aplica tema.js antes de pintar (clase montos-ocultos en <html>); app.js lo alterna.
 $ojito = fn(string $clase) => '<button type="button" class="btn fantasma icono ojito ' . $clase . '" data-montos-toggle aria-pressed="false" aria-label="Ocultar montos" title="Ocultar montos">'
     . icono('eye', 'ojo-abierto') . icono('eye-off', 'ojo-cerrado') . '</button>';
@@ -102,13 +116,23 @@ $ojito = fn(string $clase) => '<button type="button" class="btn fantasma icono o
     </div>
 
     <nav class="sb-nav">
-        <?php foreach ($grupos as $nombreGrupo => $items): ?>
-            <div class="sb-titulo"><?= e($nombreGrupo) ?></div>
-            <?php foreach ($items as [$pg, $texto, $ic]): ?>
-                <a class="nav-item<?= $seccion === $pg ? ' activo' : '' ?>" href="<?= e(url($pg)) ?>" title="<?= e($texto) ?>"<?= $seccion === $pg ? ' aria-current="page"' : '' ?>>
-                    <?= icono($ic) ?><span class="nav-txt"><?= e($texto) ?></span>
-                </a>
-            <?php endforeach; ?>
+        <?php foreach ($grupos as $idGrupo => [$nombreGrupo, $items]):
+            $abierto = $idGrupo === 'principal' || $idGrupo === $grupoActual; ?>
+            <div class="sb-grupo<?= $abierto ? ' abierto' : '' ?>">
+                <button type="button" class="sb-titulo" data-sb-grupo aria-expanded="<?= $abierto ? 'true' : 'false' ?>" aria-controls="sb-grupo-<?= e($idGrupo) ?>">
+                    <span><?= e($nombreGrupo) ?></span><?= icono('chevron-down', 'chico sb-flecha') ?>
+                </button>
+                <div class="sb-items" id="sb-grupo-<?= e($idGrupo) ?>">
+                    <div class="sb-items-in">
+                        <?php foreach ($items as $item):
+                            [$pg, $texto, $ic] = $item; ?>
+                            <a class="nav-item<?= $seccion === $pg ? ' activo' : '' ?>" href="<?= e(url($pg)) ?>" title="<?= e($item[3] ?? $texto) ?>"<?= $seccion === $pg ? ' aria-current="page"' : '' ?>>
+                                <?= icono($ic) ?><span class="nav-txt"><?= e($texto) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
         <?php endforeach; ?>
     </nav>
 
@@ -117,7 +141,7 @@ $ojito = fn(string $clase) => '<button type="button" class="btn fantasma icono o
             <?= icono($cotFalla ? 'triangle-alert' : 'circle-dollar-sign') ?>
             <span class="cotiz-dato">
                 <span class="cotiz-etq">Dólar <?= e(mb_strtolower($nombreDolar)) ?></span>
-                <span class="cotiz-val"><?= $cot ? monto_html($cot['valor_venta']) : 'sin dato' ?></span>
+                <span class="cotiz-val" data-monto-publico><?= $cot ? e(fmt_monto($cot['valor_venta'])) : 'sin dato' ?></span>
                 <span class="cotiz-hora"><?= $cot ? e(hace_cuanto($cot['creado_en'])) . ($cotFalla ? ' · falló la última' : '') : 'Cargala en Dólar' ?></span>
             </span>
         </a>
@@ -137,14 +161,14 @@ $ojito = fn(string $clase) => '<button type="button" class="btn fantasma icono o
     <header class="topbar">
         <a class="logo" href="<?= e(url('dashboard')) ?>" aria-label="Moscode, ir al inicio"><img class="logo-img" src="<?= e(asset('assets/img/moscode.svg')) ?>" alt="" width="30" height="30"></a>
         <div class="topbar-titulo"><?= e($titulo) ?></div>
-        <?= $ojito('ojito-topbar') ?>
+        <?= $conMontos ? $ojito('ojito-topbar') : '' ?>
         <a class="cotiz<?= $cotFalla ? ' alerta-cot' : '' ?>" href="<?= e(url('cotizacion')) ?>" aria-label="Dólar <?= e($nombreDolar) ?>">
             <?= icono($cotFalla ? 'triangle-alert' : 'circle-dollar-sign', 'chico') ?>
-            <span class="cotiz-val"><?= $cot ? monto_html($cot['valor_venta'], 'ARS', 'sin-simbolo', 0) : '—' ?></span>
+            <span class="cotiz-val" data-monto-publico><?= $cot ? e(number_format((float) $cot['valor_venta'], 0, ',', '.')) : '—' ?></span>
         </a>
     </header>
 
-    <div class="barra-escritorio"><?= $ojito('ojito-escritorio') ?></div>
+    <?php if ($conMontos): ?><div class="barra-escritorio"><?= $ojito('ojito-escritorio') ?></div><?php endif; ?>
     <main class="contenido" id="contenido">
         <?= $contenido ?>
     </main>

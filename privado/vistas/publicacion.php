@@ -1,5 +1,5 @@
 <?php
-/** Una publicación: estado con un toque, copy con "Copiar copy", notas, link, duplicar, editar y eliminar. */
+/** Una publicación: estado con un toque, copy con "Copiar copy" (y su contador), redes, notas, links, editar y eliminar. */
 $id = (int) get('id', '0');
 $p = publicacion_obtener($id);
 if (!$p) {
@@ -25,6 +25,7 @@ $editarHref = url('publicacion_form', ['id' => $id]);
         <?= chip($p['tipo'], '', 'megaphone') ?>
         <span class="mono"><?= e(ucfirst(fecha_larga($p['fecha'], true))) ?><?= $p['hora'] ? ' · ' . e(hora_corta($p['hora'])) : '' ?></span>
         <span class="suave"><?= e(texto_relativo($dias)) ?></span>
+        <?php foreach (pub_redes($p['redes']) as $red): ?><span class="chip red-chip"><?= red_icono_html($red, false) ?><?= e($red) ?></span><?php endforeach; ?>
     </div>
     <h1 class="pub-titulo"><?= e($p['titulo']) ?></h1>
 
@@ -40,6 +41,9 @@ $editarHref = url('publicacion_form', ['id' => $id]);
             <?php endforeach; ?>
         </div>
     </form>
+    <?php if ($p['estado'] === 'publicado' && $p['link_publicado'] !== ''): ?>
+        <p class="mt-12 m-0"><a class="btn sec chico" href="<?= e($p['link_publicado']) ?>" target="_blank" rel="noopener noreferrer"><?= icono('external-link', 'chico') ?>Ver la publicación</a></p>
+    <?php endif; ?>
     <?php if ($dias < 0 && $p['estado'] !== 'publicado'): ?>
         <p class="ayuda warn-txt mt-12"><?= icono('triangle-alert', 'chico') ?> La fecha ya pasó y todavía no está marcada como Publicado.</p>
     <?php endif; ?>
@@ -54,7 +58,8 @@ $editarHref = url('publicacion_form', ['id' => $id]);
     </div>
     <?php if ($copy !== ''): ?>
         <div class="pub-copy"><?= e($copy) ?></div>
-        <p class="ayuda mt-8"><?= number_format(mb_strlen($copy), 0, ',', '.') ?> caracteres</p>
+        <?php [$nCar, $nHash] = copy_contador($copy); ?>
+        <p class="ayuda mt-8 pub-contador<?= $nCar > PUB_LIMITE_INSTAGRAM ? ' pasado' : ($nCar >= PUB_LIMITE_AVISO ? ' cerca' : '') ?>"><?= e(texto_contador($nCar, $nHash)) ?></p>
     <?php else: ?>
         <p class="suave m-0">Todavía no tiene copy. <a href="<?= e($editarHref) ?>" data-abrir="publicacion" data-pub-editar="pub-datos">Escribilo</a>.</p>
     <?php endif; ?>
@@ -72,19 +77,6 @@ $editarHref = url('publicacion_form', ['id' => $id]);
     </dl>
 </section>
 <?php endif; ?>
-
-<section class="card" aria-labelledby="dup-tit">
-    <h2 id="dup-tit" class="card-tit">Duplicar</h2>
-    <form method="post" action="<?= e(url_accion('publicacion_duplicar')) ?>" class="pub-duplicar" data-validar novalidate>
-        <?= csrf_campo() ?>
-        <input type="hidden" name="id" value="<?= $id ?>">
-        <label class="mb-0">Fecha de la copia
-            <input type="date" name="fecha" required value="<?= e(date('Y-m-d', strtotime($p['fecha'] . ' +7 days'))) ?>">
-        </label>
-        <button class="btn sec" type="submit"><?= icono('copy-plus') ?>Duplicar</button>
-    </form>
-    <p class="ayuda mt-8">Se copian el tipo, la hora, el título, el copy, las notas y el link.<?= $p['estado'] === 'publicado' ? ' Como esta ya está publicada, la copia queda en "Listo".' : '' ?></p>
-</section>
 
 <div class="zona-peligro">
     <form method="post" action="<?= e(url_accion('publicacion_eliminar')) ?>"

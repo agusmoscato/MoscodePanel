@@ -62,7 +62,7 @@ $nuevaHref = url('publicacion_form', ['fecha' => $vista === 'calendario' ? $dia 
 </div>
 
 <?php if ($vista === 'calendario'): ?>
-<section class="card cal" aria-labelledby="cal-tit" data-calendario data-nueva-url="<?= e(url('publicacion_form')) ?>">
+<section class="card cal" aria-labelledby="cal-tit" data-calendario data-nueva-url="<?= e(url('publicacion_form')) ?>" data-mover-url="<?= e(url_accion('publicacion_mover')) ?>">
     <div class="cal-cab">
         <div class="cal-tit">
             <h2 id="cal-tit" class="cal-mes"><?= e(ucfirst(mes_nombre($mes))) ?></h2>
@@ -90,9 +90,9 @@ $nuevaHref = url('publicacion_form', ['fecha' => $vista === 'calendario' ? $dia 
                 <?php if ($n): ?>
                     <div class="cal-pubs">
                         <?php foreach ($delDia as $p): ?>
-                            <a class="cal-pub est-<?= e($p['estado']) ?>" href="<?= e(url('publicacion', ['id' => (int) $p['id']])) ?>"
-                               title="<?= e(($p['hora'] ? hora_corta($p['hora']) . ' · ' : '') . $p['tipo'] . ' · ' . $p['titulo'] . ' · ' . PUB_ESTADOS[$p['estado']]) ?>">
-                                <span class="pub-punto est-<?= e($p['estado']) ?>" aria-hidden="true"></span><span class="cal-pub-txt"><span class="cal-pub-tipo"><?= e($p['tipo']) ?></span> <?= e($p['titulo']) ?></span>
+                            <a class="cal-pub est-<?= e($p['estado']) ?>" data-pub-id="<?= (int) $p['id'] ?>" data-orden="<?= e(($p['hora'] ?? '99:99') . sprintf('%010d', (int) $p['id'])) ?>" href="<?= e(url('publicacion', ['id' => (int) $p['id']])) ?>"
+                               title="<?= e(($p['hora'] ? hora_corta($p['hora']) . ' · ' : '') . $p['tipo'] . ($p['redes'] !== '' ? ' (' . str_replace(',', ', ', $p['redes']) . ')' : '') . ' · ' . $p['titulo'] . ' · ' . PUB_ESTADOS[$p['estado']]) ?>">
+                                <span class="pub-punto est-<?= e($p['estado']) ?>" aria-hidden="true"></span><span class="cal-pub-txt"><span class="cal-pub-tipo"><?= e($p['tipo']) ?></span><?= redes_iconos_html($p['redes']) ?> <?= e($p['titulo']) ?></span>
                             </a>
                         <?php endforeach; ?>
                     </div>

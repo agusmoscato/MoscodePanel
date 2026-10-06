@@ -74,7 +74,7 @@ verificar_contiene('cookie de sesión con Secure por HTTPS', 'secure', strtolowe
 seccion('el HTML de las pantallas no trae nada que la CSP bloquearía');
 $pantallas = ['/login', '/', '/clientes', '/clientes/nuevo', '/cobros', '/vencimientos', '/cuotas', '/precios', '/reportes', '/dolar',
     '/configuracion', '/mi-cuenta', '/mi-cuenta/dos-pasos', '/notificaciones', '/actividad', '/usuarios', '/usuarios/nuevo', '/feriados', '/backups',
-    '/elegir-cliente?para=pago'];
+    '/elegir-cliente?para=pago', '/servicios', '/dominios'];
 fijar_usuario($u['id']);
 $cid = (int) valor('SELECT id FROM clientes WHERE usuario_id = {U} LIMIT 1');
 $pantallas[] = '/clientes/' . $cid;

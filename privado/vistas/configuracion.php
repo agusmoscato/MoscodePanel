@@ -141,6 +141,10 @@ $plantillaRenovacionEditada = cfg('plantilla_renovacion') !== '';
                 <textarea name="redes_tipos" rows="5" required maxlength="1000"><?= e(viejo('redes_tipos', implode("\n", redes_tipos()))) ?></textarea>
                 <span class="ayuda">Uno por renglón (hasta <?= PUB_TIPOS_MAX ?>). Son las opciones de "Tipo" al cargar una publicación en el calendario. Quitar uno no cambia las publicaciones que ya lo usan.</span>
             </label>
+            <label>Redes sociales
+                <textarea name="redes_plataformas" rows="4" required maxlength="1000"><?= e(viejo('redes_plataformas', implode("\n", redes_plataformas()))) ?></textarea>
+                <span class="ayuda">Una por renglón. Son las opciones de "Red" (se pueden elegir varias por publicación). Instagram, Facebook, LinkedIn y TikTok se muestran con su ícono; las demás, con sus iniciales.</span>
+            </label>
             <label class="check"><input type="checkbox" name="redes_aviso" value="1"<?= redes_aviso_activo() ? ' checked' : '' ?>>Avisarme el mismo día lo que hay que publicar
                 <?= chip($emailOk || $tgOk ? 'por ' . implode(' y ', array_keys(array_filter(['email' => $emailOk, 'Telegram' => $tgOk]))) : 'falta configurar email o Telegram', $emailOk || $tgOk ? 'ok' : 'warn') ?></label>
             <p class="ayuda">Un solo mensaje por día con las publicaciones de hoy que todavía no están en "Publicado". Sale con los avisos de vencimientos (el mismo Cron Job diario).</p>

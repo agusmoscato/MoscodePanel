@@ -50,6 +50,10 @@ if (trim($plantillaRenovacion) === '') {
 if ($errTipos !== null) {
     volver_con_error($errTipos, $volver);
 }
+[$redesPlataformas, $errRedes] = redes_tipos_parsear((string) ($_POST['redes_plataformas'] ?? implode("\n", redes_plataformas())), 'red social', 'redes sociales', 'Instagram', 'una');
+if ($errRedes !== null) {
+    volver_con_error($errRedes, $volver);
+}
 
 cfg_set('nombre_propio', post('nombre_propio'));
 cfg_set('alias_cbu', post('alias_cbu'));
@@ -67,6 +71,11 @@ if ($redesTipos === PUB_TIPOS_DEFECTO) {
     cfg_borrar('redes_tipos');                   // es la lista por defecto: no hace falta guardarla
 } else {
     cfg_set('redes_tipos', implode("\n", $redesTipos));
+}
+if ($redesPlataformas === PUB_REDES_DEFECTO) {
+    cfg_borrar('redes_plataformas');
+} else {
+    cfg_set('redes_plataformas', implode("\n", $redesPlataformas));
 }
 $plantilla = mb_substr($plantilla, 0, 2000);
 if (trim($plantilla) === trim(PLANTILLA_WHATSAPP_DEFECTO)) {

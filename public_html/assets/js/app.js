@@ -142,6 +142,12 @@
             var min = window.moscodeTema.colapsarSidebar();
             $$('[data-sidebar-colapsar]').forEach(function (b) { b.setAttribute('aria-pressed', min ? 'true' : 'false'); });
         }
+        // Secciones del menú: el encabezado (un <button>, anda con Enter y Espacio) las despliega o pliega
+        var cabGrupo = ev.target.closest('[data-sb-grupo]');
+        if (cabGrupo) {
+            var abierto = cabGrupo.closest('.sb-grupo').classList.toggle('abierto');
+            cabGrupo.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        }
     });
 
     /* ---------- Aviso de renovación anual (servicio o dominio): el link de WhatsApp ya está en el href ----------
@@ -372,7 +378,9 @@
     function actualizarCondicionales(inicial) {
         condicionales.forEach(function (c) {
             var partes = c.el.getAttribute('data-mostrar-si').split('=');
-            var campo = $('[name="' + partes[0] + '"][type="radio"]:checked') || $('[name="' + partes[0] + '"]');
+            // El campo se busca en el mismo formulario (puede haber dos iguales en la página: el bottom sheet y la pantalla completa)
+            var ambito = c.w.closest('form') || document;
+            var campo = $('[name="' + partes[0] + '"][type="radio"]:checked', ambito) || $('[name="' + partes[0] + '"]', ambito);
             if (!campo) { return; }
             var valor = campo.type === 'checkbox' ? (campo.checked ? '1' : '0') : campo.value;
             var abierto = valor === partes[1];
@@ -441,11 +449,25 @@
         }
         var v = datos || {
             id: 0, fecha: (disparador && disparador.getAttribute('data-fecha')) || form.getAttribute('data-hoy'),
-            hora: '', tipo: '', estado: 'idea', titulo: '', copy_texto: '', notas: '', link: ''
+            hora: '', tipo: '', redes: [], estado: 'idea', titulo: '', copy_texto: '', notas: '', link: '', link_publicado: ''
         };
         var el = form.elements;
         el.id.value = v.id || 0;
-        ['fecha', 'hora', 'titulo', 'copy_texto', 'notas', 'link'].forEach(function (c) { el[c].value = v[c] || ''; });
+        ['fecha', 'hora', 'titulo', 'copy_texto', 'notas', 'link', 'link_publicado'].forEach(function (c) { el[c].value = v[c] || ''; });
+        // Redes: una casilla por red; una red que ya no está en la lista sigue valiendo para esta publicación
+        var cajaRedes = $('[data-pub-redes]', form);
+        var redes = v.redes || [];
+        redes.forEach(function (r) {
+            if (cajaRedes && !$$('input[name="redes[]"]', form).some(function (c) { return c.value === r; })) {
+                var l = document.createElement('label'), cb = document.createElement('input'), s = document.createElement('span');
+                l.className = 'chip-radio';
+                cb.type = 'checkbox'; cb.name = 'redes[]'; cb.value = r;
+                s.textContent = r;
+                l.appendChild(cb); l.appendChild(s);
+                cajaRedes.appendChild(l);
+            }
+        });
+        $$('input[name="redes[]"]', form).forEach(function (c) { c.checked = redes.indexOf(c.value) !== -1; });
         var tipo = el.tipo;
         if (v.tipo && !$$('option', tipo).some(function (o) { return o.value === v.tipo; })) {
             var op = document.createElement('option');     // un tipo que ya no está en la lista sigue valiendo para esta publicación
@@ -458,9 +480,32 @@
         $$('label.con-error', form).forEach(function (n) { n.classList.remove('con-error'); });
         var tit = $('[data-pub-sheet-titulo]');
         if (tit) { tit.textContent = datos ? 'Editar publicación' : 'Nueva publicación'; }
+        actualizarCondicionales(true);         // "Link de la publicación" solo con estado Publicado
+        actualizarContador(form);
         form.__enviando = false;
         window.setTimeout(function () { el.titulo.focus({ preventScroll: true }); }, 380);
     }
+
+    /* ---------- Contador del copy: caracteres (límite de Instagram) y hashtags ----------
+       Solo informativo: aviso suave al acercarse y en rojo si se pasa; nunca impide guardar. El mismo texto lo arma
+       texto_contador() en privado/includes/redes.php para la primera carga. */
+    function miles(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+    function actualizarContador(form) {
+        var campo = $('[data-pub-copy]', form), cont = $('[data-pub-contador]', form);
+        if (!campo || !cont) { return; }
+        var limite = parseInt(cont.getAttribute('data-limite'), 10) || 2200;
+        var aviso = parseInt(cont.getAttribute('data-aviso'), 10) || 2000;
+        var n = Array.from(campo.value.replace(/\r\n/g, '\n').trim()).length;     // por caracteres (como mb_strlen), no por bytes ni UTF-16
+        var hashtags = (campo.value.match(/#[\p{L}\p{N}_]+/gu) || []).length;
+        var t = miles(n) + ' / ' + miles(limite) + ' caracteres · ' + hashtags + ' hashtag' + (hashtags === 1 ? '' : 's');
+        if (n > limite) { t += ' — se pasa del límite de Instagram'; } else if (n >= aviso) { t += ' — cerca del límite de Instagram'; }
+        cont.textContent = t;
+        cont.classList.toggle('pasado', n > limite);
+        cont.classList.toggle('cerca', n >= aviso && n <= limite);
+    }
+    document.addEventListener('input', function (ev) {
+        if (ev.target.matches && ev.target.matches('[data-pub-copy]')) { actualizarContador(ev.target.form); }
+    });
 
     /* ---------- Calendario de Redes ----------
        Celular: tocar un día lo elige y muestra debajo sus publicaciones (con "Agregar"). Escritorio: tocar un día
@@ -506,6 +551,78 @@
                 prepararPublicacion(agregar);
                 abrir('publicacion', agregar);
             }
+        });
+
+        /* Arrastrar y soltar una publicación a otro día (solo escritorio, con mouse): cambia la fecha por fetch con el
+           token CSRF; si el servidor no confirma, la publicación vuelve a su día. */
+        var escritorio = window.matchMedia('(min-width: 768px) and (pointer: fine)');
+        var arrastrada = null;
+        var activarArrastre = function () {
+            $$('.cal-pub', cal).forEach(function (a) { a.setAttribute('draggable', escritorio.matches ? 'true' : 'false'); });
+        };
+        activarArrastre();
+        escritorio.addEventListener('change', activarArrastre);
+        var marcarDestino = function (celda) {
+            $$('.cal-dia.soltar-aca', cal).forEach(function (c) { if (c !== celda) { c.classList.remove('soltar-aca'); } });
+            if (celda) { celda.classList.add('soltar-aca'); }
+        };
+        // Deja la etiqueta en su día, en orden por hora (data-orden), y actualiza "vacío" en los dos días
+        var ponerEn = function (pub, celda) {
+            var origen = pub.closest('.cal-dia');
+            var lista = $('.cal-pubs', celda);
+            if (!lista) {
+                lista = document.createElement('div');
+                lista.className = 'cal-pubs';
+                celda.insertBefore(lista, $('.cal-agregar', celda));
+            }
+            var sig = $$('.cal-pub', lista).filter(function (o) { return o.getAttribute('data-orden') > pub.getAttribute('data-orden'); })[0];
+            lista.insertBefore(pub, sig || null);
+            [origen, celda].forEach(function (c) { if (c) { c.classList.toggle('vacio', !$('.cal-pub', c)); } });
+        };
+        cal.addEventListener('dragstart', function (ev) {
+            var pub = ev.target.closest && ev.target.closest('.cal-pub[draggable="true"]');
+            if (!pub) { return; }
+            arrastrada = pub;
+            pub.classList.add('arrastrando');
+            ev.dataTransfer.effectAllowed = 'move';
+            ev.dataTransfer.setData('text/plain', pub.getAttribute('data-pub-id'));
+        });
+        cal.addEventListener('dragend', function () {
+            if (arrastrada) { arrastrada.classList.remove('arrastrando'); }
+            arrastrada = null;
+            marcarDestino(null);
+        });
+        cal.addEventListener('dragover', function (ev) {
+            var celda = arrastrada && ev.target.closest('.cal-dia');
+            if (!celda) { return; }
+            ev.preventDefault();
+            ev.dataTransfer.dropEffect = 'move';
+            marcarDestino(celda);
+        });
+        cal.addEventListener('drop', function (ev) {
+            var celda = arrastrada && ev.target.closest('.cal-dia');
+            if (!celda) { return; }
+            ev.preventDefault();
+            marcarDestino(null);
+            var pub = arrastrada, origen = pub.closest('.cal-dia');
+            if (celda === origen) { return; }
+            var tk = $('meta[name="csrf-token"]');
+            var datos = new URLSearchParams({ id: pub.getAttribute('data-pub-id'), fecha: celda.getAttribute('data-fecha'), csrf: tk ? tk.getAttribute('content') : '' });
+            ponerEn(pub, celda);                     // se mueve ya; si falla, vuelve
+            window.fetch(cal.getAttribute('data-mover-url'), { method: 'POST', body: datos, credentials: 'same-origin' })
+                .then(function (r) { return r.json().catch(function () { return null; }); })
+                .then(function (d) {
+                    if (d && d.ok) {
+                        toast('ok', d.mensaje);
+                    } else {
+                        ponerEn(pub, origen);
+                        toast('error', (d && d.mensaje) || 'No se pudo mover la publicación.');
+                    }
+                })
+                .catch(function () {
+                    ponerEn(pub, origen);
+                    toast('error', 'No se pudo mover la publicación (sin conexión).');
+                });
         });
     }
 

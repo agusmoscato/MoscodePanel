@@ -6,7 +6,8 @@
  * Sin JS, los mismos botones son links a la pantalla completa (vistas/publicacion_form.php).
  */
 $pfTipos = redes_tipos();
-$pf = ['id' => 0, 'fecha' => date('Y-m-d'), 'hora' => '', 'tipo' => $pfTipos[0], 'estado' => 'idea', 'titulo' => '', 'copy_texto' => '', 'notas' => '', 'link' => ''];
+$pfRedes = redes_plataformas();
+$pf = ['id' => 0, 'fecha' => date('Y-m-d'), 'hora' => '', 'tipo' => $pfTipos[0], 'redes' => [], 'estado' => 'idea', 'titulo' => '', 'copy_texto' => '', 'notas' => '', 'link' => '', 'link_publicado' => ''];
 ?>
 <div class="sheet sheet-ancha" id="sheet-publicacion" role="dialog" aria-modal="true" aria-labelledby="pub-sheet-tit">
     <div class="sheet-asa" aria-hidden="true"></div>

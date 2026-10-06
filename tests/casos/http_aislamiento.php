@@ -63,7 +63,8 @@ $huellaInicial = $huella();
 // Pantallas sin ids, y pantallas con los ids de la dueña en la URL
 $pantallas = ['/', '/clientes', '/clientes?estado=todos', '/clientes?deuda=1', '/cobros', '/cobros?estado=todos', 
     '/vencimientos', '/vencimientos?tipo=dominio', '/vencimientos?tipo=servicio', '/vencimientos?tipo=cuota', '/cuotas', '/cuotas?estado=todos', '/precios',
-    '/reportes', '/dolar', '/configuracion', '/mi-cuenta', '/notificaciones', '/elegir-cliente?para=pago', '/elegir-cliente?para=plan'];
+    '/reportes', '/dolar', '/configuracion', '/mi-cuenta', '/notificaciones', '/elegir-cliente?para=pago', '/elegir-cliente?para=plan',
+    '/servicios', '/servicios?estado=', '/dominios', '/dominios?estado='];
 $conIds = ["/clientes/$cli", "/clientes/$cli/editar", "/clientes/$cli/resumen", "/clientes/$cli/servicios/nuevo", "/clientes/$cli/dominios/nuevo",
     "/clientes/$cli/cuotas/nueva", "/servicios/$srv/editar", "/servicios/$srvAnual/editar", "/dominios/$dom/editar", "/cuotas/$plan", "/cuotas/$plan/editar",
     "/pagos/$pago/anular", "/pagos/$pagoAnulable/anular", "/pagos/nuevo?cliente_id=$cli", "/precios?cliente_id=$cli",

@@ -1,4 +1,4 @@
--- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 010).
+-- install.sql — Esquema COMPLETO del panel (incluye todas las migraciones hasta la 011).
 -- Lo ejecuta public_html/install.php; también se puede importar a mano desde phpMyAdmin.
 -- Cada sentencia termina con ";" al final de línea (el instalador separa por eso).
 --
@@ -346,11 +346,13 @@ CREATE TABLE IF NOT EXISTS publicaciones (
     fecha DATE NOT NULL,
     hora TIME NULL,
     tipo VARCHAR(40) NOT NULL,
+    redes VARCHAR(400) NOT NULL DEFAULT '',
     estado ENUM('idea','preparacion','listo','publicado') NOT NULL DEFAULT 'idea',
     titulo VARCHAR(160) NOT NULL,
     copy_texto TEXT NULL,
     notas TEXT NULL,
     link VARCHAR(500) NOT NULL DEFAULT '',
+    link_publicado VARCHAR(500) NOT NULL DEFAULT '',
     creado_en DATETIME NOT NULL,
     actualizado_en DATETIME NULL,
     INDEX idx_usuario_fecha (usuario_id, fecha, hora),

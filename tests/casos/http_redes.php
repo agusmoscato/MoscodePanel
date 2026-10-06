@@ -39,6 +39,7 @@ verificar_contiene('el calendario arranca vacío', 'Sin publicaciones', $r['cuer
 $r = $nav->post('/acciones/publicacion_guardar', [
     'id' => '0', 'fecha' => $en2, 'hora' => '19:00', 'tipo' => 'Reel', 'estado' => 'listo',
     'titulo' => $MARCA . ' Post2 - Mito vs Realidad 🔥', 'copy_texto' => $COPY, 'notas' => 'Notas ' . $MARCA, 'link' => 'https://drive.google.com/x',
+    'redes' => ['Instagram', 'TikTok'],
 ]);
 verificar('guardar redirige al calendario, en el mes y el día de la publicación', true, redirige_a($r, '/redes') && str_contains($r['location'], 'dia=' . $en2));
 fijar_usuario($duena['id']);
@@ -74,13 +75,15 @@ verificar('filtro Post: no aparece', false, str_contains($nav->get('/redes?vista
 verificar_contiene('filtro Listo: aparece', $MARCA, $nav->get('/redes?vista=lista&estado=listo')['cuerpo']);
 verificar('filtro Idea: no aparece', false, str_contains($nav->get('/redes?vista=lista&estado=idea')['cuerpo'], $MARCA));
 
-seccion('la publicación: copy con "Copiar copy", estado con un toque, duplicar');
+seccion('la publicación: copy con "Copiar copy" y su contador, redes, estado con un toque');
 $pag = $nav->get('/redes/' . $id)['cuerpo'];
 verificar_contiene('el copy se ve escapado y con sus emojis', e($COPY), $pag);
 verificar_contiene('botón "Copiar copy" con el copy entero en data-copiar', 'data-copiar="' . e($COPY) . '"', $pag);
 verificar_contiene('cuatro botones de estado (un toque = un POST)', 'name="estado" value="publicado"', $pag);
 verificar_contiene('el estado actual está marcado', 'pub-estado est-listo actual" aria-pressed="true"', $pag);
-verificar_contiene('formulario de duplicar', 'action="/acciones/publicacion_duplicar"', $pag);
+verificar('ya no hay "Duplicar"', false, str_contains($pag, 'publicacion_duplicar') || str_contains($pag, 'Duplicar'));
+verificar_contiene('contador del copy (caracteres y hashtags)', '/ 2.200 caracteres · 0 hashtags', $pag);
+verificar_contiene('las redes, con su ícono', '#red-instagram"></use></svg></i>Instagram</span>', $pag);
 verificar_contiene('notas internas', 'Notas ' . $MARCA, $pag);
 verificar_contiene('link con rel noopener', 'href="https://drive.google.com/x" target="_blank" rel="noopener noreferrer"', $pag);
 verificar('el HTML escapa el copy: no aparece <b> sin escapar', false, str_contains($pag, '<b>no es HTML</b>'));
@@ -95,12 +98,39 @@ $nav->get('/redes/' . $id);
 $r = $nav->post('/acciones/publicacion_estado', ['id' => (string) $id, 'estado' => 'publicado']);
 verificar('cambiar estado vuelve a la publicación', true, redirige_a($r, '/redes/' . $id));
 verificar('estado cambiado a Publicado', 'publicado', valor('SELECT estado FROM publicaciones WHERE id = ? AND usuario_id = {U}', [$id]));
-$nav->get('/redes/' . $id);
-$r = $nav->post('/acciones/publicacion_duplicar', ['id' => (string) $id, 'fecha' => $hoy]);
-$idCopia = (int) valor('SELECT MAX(id) FROM publicaciones WHERE usuario_id = {U}');
-verificar('duplicar abre la copia', true, $idCopia !== $id && redirige_a($r, '/redes/' . $idCopia));
-verificar('la copia (hoy) trae el mismo copy y queda Listo', [$COPY, 'listo', $hoy],
-    array_values(fila('SELECT copy_texto, estado, fecha FROM publicaciones WHERE id = ? AND usuario_id = {U}', [$idCopia])));
+verificar('Publicado sin link de la publicación: no hay botón "Ver la publicación"', false, str_contains($nav->get('/redes/' . $id)['cuerpo'], 'Ver la publicación'));
+$r = $nav->post('/acciones/publicacion_guardar', [
+    'id' => (string) $id, 'fecha' => $en2, 'hora' => '19:00', 'tipo' => 'Reel', 'estado' => 'publicado', 'titulo' => $MARCA . ' Post2 - Mito vs Realidad 🔥',
+    'copy_texto' => $COPY, 'notas' => 'Notas ' . $MARCA, 'link' => 'https://drive.google.com/x', 'redes' => ['Instagram', 'TikTok'],
+    'link_publicado' => 'https://www.instagram.com/p/xyz/',
+]);
+verificar_contiene('con link de la publicación: botón "Ver la publicación"', 'href="https://www.instagram.com/p/xyz/" target="_blank" rel="noopener noreferrer"', $nav->get('/redes/' . $id)['cuerpo']);
+verificar_contiene('el formulario lo muestra solo con estado Publicado', 'data-mostrar-si="estado=publicado" hidden>Link de la publicación', $nav->get("/redes/$id/editar")['cuerpo']);
+
+seccion('título completo en el calendario (sin cortar) y arrastrar y soltar para cambiar el día');
+$tituloLargo = $MARCA . ' Un título bien largo que en la celda del calendario tiene que verse completo, con salto de línea';
+$nav->get('/redes');
+$nav->post('/acciones/publicacion_guardar', ['id' => '0', 'fecha' => $hoy, 'tipo' => 'Post', 'estado' => 'listo', 'titulo' => $tituloLargo, 'redes' => ['Facebook']]);
+$idHoy = (int) valor('SELECT MAX(id) FROM publicaciones WHERE usuario_id = {U}');
+$cal = $nav->get('/redes?mes=' . substr($hoy, 0, 7))['cuerpo'];
+verificar_contiene('el título entero está en la etiqueta', e($tituloLargo) . '</span>', $cal);
+verificar_contiene('con el ícono de su red', '#red-facebook', $cal);
+$css = (string) file_get_contents(RAIZ_PROYECTO . '/public_html/assets/css/app.css');
+verificar_cierto('CSS: la etiqueta hace salto de línea (sin "…" ni nowrap)', str_contains($css, '.cal-pub-txt { min-width: 0; overflow-wrap: anywhere; white-space: normal; }')
+    && !preg_match('/\.cal-pub-txt \{[^}]*(ellipsis|nowrap)/', $css));
+verificar_contiene('cada etiqueta lleva su id para arrastrarla', 'data-pub-id="' . $idHoy . '"', $cal);
+verificar_contiene('el calendario sabe a dónde mandar el cambio', 'data-mover-url="/acciones/publicacion_mover"', $cal);
+$enOtro = date('Y-m-d', strtotime('+5 days'));
+$r = $nav->post('/acciones/publicacion_mover', ['id' => (string) $idHoy, 'fecha' => $enOtro]);
+$jr = json_decode($r['cuerpo'], true);
+verificar('mover: responde JSON ok con el mensaje para el toast', [200, true], [$r['codigo'], $jr['ok'] ?? null]);
+verificar_contiene('mover: mensaje', 'Publicación movida al', (string) ($jr['mensaje'] ?? ''));
+verificar('mover: la fecha cambió', $enOtro, valor('SELECT fecha FROM publicaciones WHERE id = ? AND usuario_id = {U}', [$idHoy]));
+$r = $nav->post('/acciones/publicacion_mover', ['id' => (string) $idHoy, 'fecha' => 'cualquiera']);
+verificar('mover con fecha inválida: 422 y no cambia', [422, $enOtro], [$r['codigo'], valor('SELECT fecha FROM publicaciones WHERE id = ? AND usuario_id = {U}', [$idHoy])]);
+$r = $nav->pedir('POST', '/acciones/publicacion_mover', ['id' => (string) $idHoy, 'fecha' => $hoy]);
+verificar('mover sin token CSRF: 403 y no cambia', [403, $enOtro], [$r['codigo'], valor('SELECT fecha FROM publicaciones WHERE id = ? AND usuario_id = {U}', [$idHoy])]);
+$nav->post('/acciones/publicacion_mover', ['id' => (string) $idHoy, 'fecha' => $hoy]);
 
 seccion('error de validación: vuelve al formulario completo con lo escrito');
 $nav->get('/redes');
@@ -113,7 +143,7 @@ verificar_contiene('el copy escrito se repuebla (con su emoji)', 'Texto 😀 que
 seccion('dashboard: card "Redes esta semana"; sidebar y botón "+"');
 $dash = $nav->get('/')['cuerpo'];
 verificar_contiene('card en el dashboard', 'Redes esta semana', $dash);
-verificar_contiene('con la publicación de hoy (la copia)', $MARCA, $dash);
+verificar_contiene('con la publicación de hoy', $MARCA, $dash);
 verificar_contiene('y su estado', '>Listo</span>', $dash);
 verificar_contiene('"Redes" en el sidebar', 'href="/redes" title="Redes"', $dash);
 verificar_contiene('"Nueva publicación" en el botón +', 'href="/redes/nueva" data-abrir="publicacion"', $dash);
@@ -151,7 +181,7 @@ insertar('publicaciones', ['fecha' => $hoy, 'tipo' => 'Post', 'estado' => 'idea'
 $navAjena = new Navegador();
 $navAjena->login($ajena['usuario'], $ajena['clave']);
 foreach (['/redes', '/redes?mes=' . substr($en2, 0, 7) . '&dia=' . $en2, '/redes?vista=lista', '/redes?vista=lista&tipo=Reel', '/redes?vista=lista&atrasadas=1',
-    "/redes/$id", "/redes/$id/editar", "/redes/$idCopia", '/'] as $ruta) {
+    "/redes/$id", "/redes/$id/editar", "/redes/$idHoy", '/'] as $ruta) {
     $r = $navAjena->get($ruta);
     verificar_cierto("ajena: $ruta (HTTP {$r['codigo']}) sin datos de la dueña", $r['codigo'] < 500 && !str_contains($r['cuerpo'] . $r['location'], $MARCA));
 }
@@ -160,7 +190,7 @@ verificar_contiene('control: la ajena sí ve la suya', 'Propia de la ajena', $na
 foreach ([
     'publicacion_guardar' => ['id' => (string) $id, 'fecha' => $hoy, 'tipo' => 'Post', 'estado' => 'idea', 'titulo' => 'Pisada'],
     'publicacion_estado' => ['id' => (string) $id, 'estado' => 'idea'],
-    'publicacion_duplicar' => ['id' => (string) $id, 'fecha' => $hoy],
+    'publicacion_mover' => ['id' => (string) $id, 'fecha' => $hoy],
     'publicacion_eliminar' => ['id' => (string) $id],
 ] as $accion => $datos) {
     $navAjena->get('/redes');
